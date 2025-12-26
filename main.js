@@ -18,37 +18,48 @@ async function loadNews() {
   container.innerHTML = "Chargement…";
   notif.style.display = "none";
 
-  const lastSeen = localStorage.getItem(STORAGE_KEY);
-  let newestDate = lastSeen ? new Date(lastSeen) : null;
+  const lastSeenRaw = localStorage.getItem(STORAGE_KEY);
+  const lastSeen = lastSeenRaw ? new Date(lastSeenRaw) : null;
+
+  let newestDate = lastSeen;
   let hasNew = false;
   let html = "";
 
   for (const feed of feeds) {
     try {
-      const api = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}`;
+      const api = `https://api.allorigins.win/raw?url=${encodeURIComponent(feed.url)}&t=${Date.now()}`;
       const res = await fetch(api);
-      const data = await res.json();
+      const text = await res.text();
 
-      data.items.slice(0, 3).forEach(item => {
-        const pubDate = new Date(item.pubDate);
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(text, "text/xml");
+      const items = xml.querySelectorAll("item");
 
-        if (lastSeen && pubDate > new Date(lastSeen)) {
+      items.forEach((item, index) => {
+        if (index >= 3) return;
+
+        const title = item.querySelector("title")?.textContent || "Sans titre";
+        const pubDateText = item.querySelector("pubDate")?.textContent;
+        const pubDate = pubDateText ? new Date(pubDateText) : null;
+
+        if (pubDate && lastSeen && pubDate > lastSeen) {
           hasNew = true;
         }
 
-        if (!newestDate || pubDate > newestDate) {
+        if (pubDate && (!newestDate || pubDate > newestDate)) {
           newestDate = pubDate;
         }
 
         html += `
           <div class="item">
-            <div>${item.title}</div>
+            <div>${title}</div>
             <div class="source">${feed.name}</div>
           </div>
         `;
       });
-    } catch (e) {
-      html += `<div class="item">Erreur ${feed.name}</div>`;
+
+    } catch (err) {
+      html += `<div class="item">Erreur sur ${feed.name}</div>`;
     }
   }
 
@@ -60,7 +71,7 @@ async function loadNews() {
     localStorage.setItem(STORAGE_KEY, newestDate.toISOString());
   }
 
-  container.innerHTML = html || "Aucune actu dispo.";
+  container.innerHTML = html || "Aucune actu disponible.";
 }
 
 loadNews();
