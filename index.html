@@ -3,98 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rabbit News VR/Gaming</title>
+    <title>Rabbit News Hub</title>
     <style>
-        :root { --orange: #ff4e00; --bg: #000; --card: #121212; --text: #eee; }
-        body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
-        
-        /* Header compact */
-        .header { width: 100%; text-align: left; padding: 10px; border-bottom: 2px solid var(--orange); margin-bottom: 15px; }
-        h1 { font-size: 1.2rem; margin: 0; color: var(--orange); }
-        .tagline { font-size: 0.7rem; opacity: 0.6; text-transform: uppercase; }
+        :root { --orange: #ff4e00; --bg: #000; --card: #111; --text: #fff; --gray: #888; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding: 0; }
 
-        /* Menu de liens rapides */
-        .nav-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; max-width: 280px; margin-bottom: 20px; }
-        .nav-item { background: var(--card); color: white; text-decoration: none; padding: 12px; border-radius: 10px; font-size: 0.8rem; text-align: center; border: 1px solid #333; }
-        .nav-item:active { background: var(--orange); }
+        /* Navigation Onglets */
+        .tabs { 
+            display: flex; background: #000; position: sticky; top: 0; z-index: 10;
+            border-bottom: 1px solid #222;
+        }
+        .tab-btn { 
+            flex: 1; padding: 15px 5px; border: none; background: none; 
+            color: var(--gray); font-size: 0.7rem; font-weight: bold; text-transform: uppercase;
+        }
+        .tab-btn.active { color: var(--orange); border-bottom: 2px solid var(--orange); }
 
-        /* News Section */
-        #news-container { width: 100%; max-width: 280px; }
-        .news-card { background: var(--card); margin-bottom: 10px; padding: 12px; border-radius: 12px; border-left: 4px solid var(--orange); }
-        .news-title { font-size: 0.9rem; font-weight: bold; margin-bottom: 5px; display: block; color: #fff; text-decoration: none; }
-        .news-meta { font-size: 0.7rem; color: var(--orange); opacity: 0.8; }
+        /* Liste des News */
+        .news-list { padding: 10px; max-width: 400px; margin: auto; }
+        .news-item { 
+            background: var(--card); border-radius: 12px; padding: 12px; 
+            margin-bottom: 10px; border: 1px solid #222;
+            transition: 0.2s;
+        }
+        .news-item:active { background: #1a1a1a; border-color: var(--orange); }
         
-        .loader { text-align: center; font-size: 0.8rem; padding: 20px; color: var(--orange); animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0; } }
+        .news-title { font-size: 0.95rem; font-weight: bold; line-height: 1.3; margin-bottom: 6px; }
+        .news-desc { font-size: 0.8rem; color: #bbb; display: none; margin-top: 8px; border-top: 1px solid #333; padding-top: 8px; }
+        .news-item.open .news-desc { display: block; }
+        
+        .news-meta { font-size: 0.7rem; color: var(--orange); display: flex; justify-content: space-between; }
+        .source-link { 
+            display: inline-block; margin-top: 10px; padding: 5px 10px; 
+            background: var(--orange); color: #fff; border-radius: 5px; 
+            text-decoration: none; font-size: 0.75rem; 
+        }
+
+        .loader { text-align: center; padding: 30px; color: var(--orange); font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <div class="tagline">Tech & Gaming Portal</div>
-        <h1>Rabbit R1 News</h1>
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab(event, 'vr')">VR</button>
+        <button class="tab-btn" onclick="switchTab(event, 'ar')">Lunettes</button>
+        <button class="tab-btn" onclick="switchTab(event, 'gaming')">Gaming</button>
     </div>
 
-    <div class="nav-grid">
-        <a href="https://www.realite-virtuelle.com/" class="nav-item">VR News</a>
-        <a href="https://www.jeuxvideo.com/" class="nav-item">Gaming</a>
-        <a href="https://stylistme.com/" class="nav-item">AR Glasses</a>
-        <a href="https://github.com/ricoladu38" class="nav-item">My GitHub</a>
-    </div>
-
-    <div id="news-container">
-        <div class="loader">Synchronisation des flux...</div>
+    <div id="content" class="news-list">
+        <div class="loader">Chargement...</div>
     </div>
 
     <script>
-        // On utilise un proxy RSS2JSON pour transformer les flux lourds en JSON léger
-        const FEEDS = [
-            { name: 'VR', url: 'https://www.realite-virtuelle.com/feed/' },
-            { name: 'Gaming', url: 'https://www.gamekult.com/flux-rss/actualite.xml' }
-        ];
+        const FEEDS = {
+            vr: 'https://www.realite-virtuelle.com/feed/',
+            ar: 'https://www.numerama.com/tech/feed/',
+            gaming: 'https://www.jeuxvideo.com/rss/news.xml'
+        };
 
-        async function loadNews() {
-            const container = document.getElementById('news-container');
-            let allItems = [];
+        let currentTab = 'vr';
+
+        // Fonction pour changer d'onglet
+        function switchTab(evt, cat) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            evt.currentTarget.classList.add('active');
+            currentTab = cat;
+            loadNews(cat);
+        }
+
+        // Récupérer et afficher les news
+        async function loadNews(cat) {
+            const container = document.getElementById('content');
+            container.innerHTML = '<div class="loader">Lecture du flux...</div>';
 
             try {
-                for (let feed of FEEDS) {
-                    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}`);
-                    const data = await res.json();
-                    if (data.items) {
-                        // On ne garde que les 3 dernières news de chaque catégorie pour la rapidité
-                        const freshNews = data.items.slice(0, 3).map(item => ({
-                            title: item.title,
-                            link: item.link,
-                            category: feed.name,
-                            date: new Date(item.pubDate).toLocaleTimeString('fr-FR', {hour: '2min', minute:'2min'})
-                        }));
-                        allItems = [...allItems, ...freshNews];
-                    }
-                }
-                renderNews(allItems);
+                const response = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(FEEDS[cat])}`);
+                const data = await response.json();
+                
+                container.innerHTML = ""; 
+
+                data.items.slice(0, 8).forEach(item => {
+                    // Nettoyage de la description (on enlève les balises HTML)
+                    const tempDiv = document.createElement("div");
+                    tempDiv.innerHTML = item.description;
+                    const cleanDesc = tempDiv.textContent || tempDiv.innerText || "";
+
+                    const article = document.createElement('div');
+                    article.className = 'news-item';
+                    article.onclick = () => article.classList.toggle('open');
+                    
+                    article.innerHTML = `
+                        <div class="news-meta">
+                            <span>${cat.toUpperCase()}</span>
+                            <span>${new Date(item.pubDate).toLocaleDateString('fr-FR')}</span>
+                        </div>
+                        <div class="news-title">${item.title}</div>
+                        <div class="news-desc">
+                            ${cleanDesc.substring(0, 150)}...
+                            <br>
+                            <a href="${item.link}" target="_blank" class="source-link">Lire l'article complet</a>
+                        </div>
+                    `;
+                    container.appendChild(article);
+                });
             } catch (e) {
-                container.innerHTML = '<div class="news-card">Erreur de connexion.</div>';
+                container.innerHTML = "<div class='loader'>Erreur réseau. Réessaye.</div>";
             }
         }
 
-        function renderNews(items) {
-            const container = document.getElementById('news-container');
-            container.innerHTML = ''; // Nettoyer le loader
-            
-            items.forEach(item => {
-                const card = document.createElement('div');
-                card.className = 'news-card';
-                card.innerHTML = `
-                    <div class="news-meta">${item.category.toUpperCase()} • ${item.date}</div>
-                    <a href="${item.link}" class="news-title">${item.title}</a>
-                `;
-                container.appendChild(card);
-            });
-        }
-
-        // Lancement au chargement
-        window.onload = loadNews;
+        // Lancer au démarrage
+        window.onload = () => loadNews('vr');
     </script>
 </body>
 </html>
