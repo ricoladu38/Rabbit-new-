@@ -6,38 +6,52 @@
     <title>Rabbit Pro Hub</title>
     <style>
         :root { --orange: #ff4e00; --bg: #000; --card: #151515; --text: #fff; }
-        body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding: 0; overflow-x: hidden; touch-action: pan-y; }
+        body { 
+            background: var(--bg); color: var(--text); font-family: sans-serif; 
+            margin: 0; padding: 0; overflow: hidden; height: 100vh;
+        }
 
-        /* Tabs avec style Rabbit */
+        /* Barre de défilement personnalisée Rabbit */
+        #scroll-indicator {
+            position: fixed; right: 2px; top: 50px; width: 4px; height: 30px;
+            background: var(--orange); border-radius: 2px; opacity: 0;
+            transition: opacity 0.3s, transform 0.1s; z-index: 1000;
+        }
+
         .tabs { 
             display: flex; background: #000; position: sticky; top: 0; z-index: 100;
-            border-bottom: 2px solid var(--orange);
+            border-bottom: 2px solid var(--orange); height: 50px;
         }
-        .tab-btn { flex: 1; padding: 18px 5px; border: none; background: none; color: #666; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; }
-        .tab-btn.active { color: var(--orange); }
+        .tab-btn { flex: 1; border: none; background: none; color: #666; font-size: 0.65rem; font-weight: bold; text-transform: uppercase; }
+        .tab-btn.active { color: var(--orange); border-bottom: 2px solid var(--orange); }
 
-        /* Conteneur de flux */
-        .feed { padding: 12px; padding-bottom: 100px; }
+        /* Zone de contenu scrollable */
+        #main-scroll {
+            height: calc(100vh - 50px); overflow-y: auto; padding: 12px;
+            scroll-behavior: smooth; -webkit-overflow-scrolling: touch;
+        }
+        
         .news-item { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #222; }
         .news-title { font-size: 0.95rem; font-weight: bold; line-height: 1.4; }
-        .news-meta { font-size: 0.65rem; color: var(--orange); margin-bottom: 8px; display: flex; justify-content: space-between; }
-        
+        .news-meta { font-size: 0.6rem; color: var(--orange); margin-bottom: 8px; display: flex; justify-content: space-between; text-transform: uppercase; }
         .news-desc { display: none; font-size: 0.85rem; color: #ccc; margin-top: 10px; padding-top: 10px; border-top: 1px solid #333; }
         .news-item.open .news-desc { display: block; }
 
-        /* Bouton Refresh flottant */
         #refresh-btn {
-            position: fixed; bottom: 25px; right: 25px; width: 55px; height: 55px;
+            position: fixed; bottom: 20px; right: 20px; width: 50px; height: 50px;
             background: var(--orange); border-radius: 50%; border: none;
             display: flex; align-items: center; justify-content: center; z-index: 200;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
-        #refresh-btn svg { width: 28px; height: 28px; fill: white; }
+        #refresh-btn svg { width: 24px; height: 24px; fill: white; }
 
-        .loader { text-align: center; padding: 50px; color: var(--orange); font-size: 0.8rem; font-weight: bold; }
+        .loader { text-align: center; padding: 50px; color: var(--orange); font-size: 0.8rem; }
+        
+        @keyframes shake-ui { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(5px); } 75% { transform: translateX(-5px); } }
     </style>
 </head>
 <body>
+
+    <div id="scroll-indicator"></div>
 
     <div class="tabs">
         <button id="tab-wear" class="tab-btn active" onclick="changeTab('wear')">VR & AR</button>
@@ -45,8 +59,10 @@
         <button id="tab-game" class="tab-btn" onclick="changeTab('game')">Gaming</button>
     </div>
 
-    <div id="feed-container" class="feed">
-        <div class="loader">CHARGEMENT...</div>
+    <div id="main-scroll">
+        <div id="feed-container">
+            <div class="loader">CHARGEMENT...</div>
+        </div>
     </div>
 
     <button id="refresh-btn" onclick="triggerRefresh()">
@@ -61,99 +77,104 @@
         };
 
         let currentCat = 'wear';
+        const scrollZone = document.getElementById('main-scroll');
+        const indicator = document.getElementById('scroll-indicator');
 
-        // --- GESTION DES COMMANDES MATÉRIELLES RABBIT R1 ---
+        // --- HARDWARE RABBIT R1 ---
 
-        // 1. MOLETTE (SCROLL WHEEL)
-        // Le R1 envoie souvent des touches ArrowUp/ArrowDown pour la molette latérale
+        // Gestion Molette (Keycodes)
         window.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowDown') {
-                window.scrollBy({ top: 100, behavior: 'smooth' });
-            } else if (e.key === 'ArrowUp') {
-                window.scrollBy({ top: -100, behavior: 'smooth' });
+            const step = 120;
+            if (e.keyCode === 40 || e.keyCode === 34) { // BAS
+                scrollZone.scrollBy(0, step);
+                showIndicator();
+                vibrate(10);
+            } else if (e.keyCode === 38 || e.keyCode === 33) { // HAUT
+                scrollZone.scrollBy(0, -step);
+                showIndicator();
+                vibrate(10);
             }
         });
 
-        // 2. SECOUSSE (SHAKE)
-        // Utilisation de la détection de mouvement standard si disponible
-        let lastShake = 0;
-        window.addEventListener('devicemotion', (event) => {
-            const acc = event.accelerationIncludingGravity;
-            if (acc) {
-                let total = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
-                if (total > 25) { // Seuil de secousse
-                    let now = Date.now();
-                    if (now - lastShake > 2000) {
-                        lastShake = now;
-                        triggerRefresh();
-                    }
-                }
-            }
-        }, true);
+        // Mise à jour de la barre orange
+        scrollZone.addEventListener('scroll', () => {
+            const scrollPct = scrollZone.scrollTop / (scrollZone.scrollHeight - scrollZone.clientHeight);
+            const moveY = scrollPct * (window.innerHeight - 100);
+            indicator.style.transform = `translateY(${moveY}px)`;
+        });
 
-        // 3. VIBRATION (HAPTIC)
-        function vibrate() {
-            if (navigator.vibrate) {
-                navigator.vibrate(50);
-            }
+        function showIndicator() {
+            indicator.style.opacity = "1";
+            clearTimeout(window.scrollTimer);
+            window.scrollTimer = setTimeout(() => indicator.style.opacity = "0", 1000);
         }
 
-        // --- FONCTIONS DU FLUX ---
+        // Accéléromètre
+        let lastShake = 0;
+        window.addEventListener('devicemotion', (e) => {
+            const acc = e.accelerationIncludingGravity;
+            if (acc && (Math.abs(acc.x) + Math.abs(acc.y) > 20)) {
+                if (Date.now() - lastShake > 2000) {
+                    lastShake = Date.now();
+                    triggerRefresh();
+                }
+            }
+        });
+
+        function vibrate(ms) {
+            if (navigator.vibrate) navigator.vibrate(ms);
+        }
 
         function triggerRefresh() {
-            vibrate();
+            vibrate([50, 50, 50]);
+            document.body.style.animation = "shake-ui 0.3s";
+            setTimeout(() => document.body.style.animation = "", 300);
             fetchNews(currentCat);
         }
 
+        // --- LOGIQUE NEWS ---
+
         async function fetchNews(cat) {
             const container = document.getElementById('feed-container');
-            container.innerHTML = '<div class="loader">MISE À JOUR...</div>';
-            
+            container.innerHTML = '<div class="loader">MAJ...</div>';
             try {
-                let allArticles = [];
+                let all = [];
                 for (let url of SOURCES[cat]) {
                     const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
-                    const data = await res.json();
-                    if (data.status === 'ok') {
-                        allArticles = [...allArticles, ...data.items.map(i => ({
-                            ...i,
-                            src: data.feed.title.substring(0, 10)
-                        }))];
-                    }
+                    const d = await res.json();
+                    if (d.status === 'ok') all = [...all, ...d.items.map(i => ({...i, src: d.feed.title.substring(0,8)}))];
                 }
-                
-                allArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-                
+                all.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
                 container.innerHTML = '';
-                allArticles.slice(0, 15).forEach(item => {
+                all.slice(0, 15).forEach(item => {
                     const div = document.createElement('div');
                     div.className = 'news-item';
-                    div.onclick = () => { div.classList.toggle('open'); vibrate(); };
-                    
+                    div.onclick = () => { div.classList.toggle('open'); vibrate(20); };
                     const desc = (item.description || "").replace(/<[^>]*>?/gm, '').substring(0, 150);
-                    
                     div.innerHTML = `
                         <div class="news-meta"><span>${item.src}</span><span>${new Date(item.pubDate).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}</span></div>
                         <div class="news-title">${item.title}</div>
-                        <div class="news-desc">${desc}...<br><br><a href="${item.link}" target="_blank" style="color:var(--orange); text-decoration:none; font-weight:bold;">LIRE LA SOURCE</a></div>
+                        <div class="news-desc">${desc}...<br><br><a href="${item.link}" target="_blank" style="color:var(--orange); font-weight:bold; text-decoration:none;">LIRE SOURCE</a></div>
                     `;
                     container.appendChild(div);
                 });
-            } catch (err) {
-                container.innerHTML = '<div class="loader">ERREUR RÉSEAU</div>';
-            }
+            } catch (e) { container.innerHTML = '<div class="loader">ERREUR</div>'; }
         }
 
         function changeTab(cat) {
-            vibrate();
+            vibrate(30);
             currentCat = cat;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('tab-' + (cat === 'wear' ? 'wear' : cat === 'phone' ? 'phone' : 'game')).classList.add('active');
             fetchNews(cat);
-            window.scrollTo(0,0);
+            scrollZone.scrollTop = 0;
         }
 
-        window.onload = () => fetchNews('wear');
+        // Focus forcer pour capter la molette immédiatement
+        window.onload = () => {
+            fetchNews('wear');
+            window.focus();
+        };
     </script>
 </body>
 </html>
