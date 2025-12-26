@@ -3,49 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rabbit Tech Portal</title>
+    <title>Rabbit Portal - GamerGen</title>
     <style>
-        :root { --orange: #ff4e00; --bg: #000; --card: #121212; --text: #fff; --gray: #999; }
-        
-        body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+        :root { --orange: #ff4e00; --bg: #000; --card: #141414; --text: #fff; }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; padding: 0; }
 
-        /* Navigation Fixe */
+        /* Onglets */
         .tabs { 
             display: flex; background: #000; position: sticky; top: 0; z-index: 100;
-            border-bottom: 1px solid var(--orange); box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            border-bottom: 2px solid var(--orange);
         }
         .tab-btn { 
-            flex: 1; padding: 18px 5px; border: none; background: none; 
-            color: var(--gray); font-size: 0.75rem; font-weight: 800; text-transform: uppercase;
+            flex: 1; padding: 16px 5px; border: none; background: none; 
+            color: #777; font-size: 0.75rem; font-weight: bold; text-transform: uppercase;
         }
-        .tab-btn.active { color: var(--orange); position: relative; }
-        .tab-btn.active::after { content: ''; position: absolute; bottom: 0; left: 25%; width: 50%; height: 3px; background: var(--orange); }
+        .tab-btn.active { color: var(--orange); }
 
-        /* Liste des News */
-        .feed { padding: 12px; max-width: 500px; margin: auto; }
+        /* Contenu */
+        .feed { padding: 12px; }
         .news-item { 
-            background: var(--card); border-radius: 15px; padding: 15px; 
+            background: var(--card); border-radius: 12px; padding: 14px; 
             margin-bottom: 12px; border: 1px solid #222;
         }
-        .news-item:active { background: #1a1a1a; }
+        .news-meta { font-size: 0.65rem; color: var(--orange); margin-bottom: 5px; font-weight: bold; }
+        .news-title { font-size: 0.92rem; font-weight: 700; line-height: 1.4; }
         
-        .news-meta { font-size: 0.65rem; color: var(--orange); font-weight: bold; margin-bottom: 8px; text-transform: uppercase; display: flex; justify-content: space-between; }
-        .news-title { font-size: 0.95rem; font-weight: 700; line-height: 1.4; color: #fff; }
-        
-        /* Description cachée par défaut */
-        .news-desc { display: none; font-size: 0.85rem; color: #ccc; margin-top: 10px; padding-top: 10px; border-top: 1px solid #333; line-height: 1.5; }
+        .news-desc { display: none; font-size: 0.82rem; color: #ccc; margin-top: 10px; padding-top: 10px; border-top: 1px solid #333; }
         .news-item.open .news-desc { display: block; }
         
         .read-more { 
-            display: inline-block; margin-top: 12px; padding: 8px 15px; 
-            background: var(--orange); color: #fff; border-radius: 8px; 
-            text-decoration: none; font-size: 0.75rem; font-weight: bold;
+            display: inline-block; margin-top: 10px; padding: 7px 12px; 
+            background: var(--orange); color: #fff; border-radius: 6px; 
+            text-decoration: none; font-size: 0.7rem; font-weight: bold;
         }
 
-        .loader { text-align: center; padding: 50px 20px; color: var(--orange); font-size: 0.9rem; font-weight: bold; }
-        
-        /* Scroll fluide pour le R1 */
-        ::-webkit-scrollbar { width: 0; background: transparent; }
+        .loader { text-align: center; padding: 50px; color: var(--orange); font-size: 0.8rem; letter-spacing: 1px; }
     </style>
 </head>
 <body>
@@ -53,7 +45,7 @@
     <div class="tabs">
         <button class="tab-btn active" onclick="changeTab(event, 'vr')">VR</button>
         <button class="tab-btn" onclick="changeTab(event, 'ar')">Lunettes</button>
-        <button class="tab-btn" onclick="changeTab(event, 'gaming')">Gaming</button>
+        <button class="tab-btn" onclick="changeTab(event, 'gaming')">GamerGen</button>
     </div>
 
     <div id="feed-container" class="feed">
@@ -64,7 +56,7 @@
         const SOURCES = {
             vr: 'https://www.realite-virtuelle.com/feed/',
             ar: 'https://www.augmented-reality.fr/feed/',
-            gaming: 'https://hitek.fr/rss/actualite_jeux-video.xml' // Source gaming tech très propre
+            gaming: 'https://gamergen.com/rss/news'
         };
 
         async function fetchNews(cat) {
@@ -72,7 +64,7 @@
             container.innerHTML = '<div class="loader">MISE À JOUR...</div>';
 
             try {
-                // Utilisation du service rss2json (rapide et gratuit)
+                // Utilisation du proxy rss2json pour transformer le flux GamerGen en JSON
                 const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(SOURCES[cat])}`);
                 const data = await res.json();
 
@@ -80,31 +72,27 @@
 
                 container.innerHTML = '';
                 data.items.slice(0, 10).forEach(item => {
-                    // Nettoyage du texte (suppression HTML et images)
-                    const temp = document.createElement('div');
-                    temp.innerHTML = item.description;
-                    const cleanText = temp.textContent || temp.innerText || "";
-
-                    const card = document.createElement('div');
-                    card.className = 'news-item';
-                    card.onclick = () => card.classList.toggle('open');
+                    const article = document.createElement('div');
+                    article.className = 'news-item';
+                    article.onclick = () => article.classList.toggle('open');
                     
-                    card.innerHTML = `
-                        <div class="news-meta">
-                            <span>${cat}</span>
-                            <span>${new Date(item.pubDate).toLocaleDateString('fr-FR')}</span>
-                        </div>
+                    // Extraction et nettoyage du texte de description
+                    let description = item.description || item.content || "";
+                    let cleanText = description.replace(/<[^>]*>?/gm, '').substring(0, 160);
+
+                    article.innerHTML = `
+                        <div class="news-meta">GAMERGEN • ${new Date(item.pubDate).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})}</div>
                         <div class="news-title">${item.title}</div>
                         <div class="news-desc">
-                            ${cleanText.substring(0, 180)}...
+                            ${cleanText}...
                             <br>
-                            <a href="${item.link}" target="_blank" class="read-more">VOIR L'ARTICLE</a>
+                            <a href="${item.link}" target="_blank" class="read-more" onclick="event.stopPropagation();">LIRE L'ARTICLE</a>
                         </div>
                     `;
-                    container.appendChild(card);
+                    container.appendChild(article);
                 });
             } catch (e) {
-                container.innerHTML = '<div class="loader">ERREUR DE FLUX.<br><small>Vérifie ta connexion</small></div>';
+                container.innerHTML = '<div class="loader">ERREUR DE CHARGEMENT<br><small>Réessayez dans quelques secondes</small></div>';
             }
         }
 
@@ -112,10 +100,10 @@
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             e.currentTarget.classList.add('active');
             fetchNews(cat);
-            window.scrollTo(0,0); // Remonte en haut de page
+            window.scrollTo(0,0);
         }
 
-        // Chargement initial
+        // Lancement par défaut sur VR
         window.onload = () => fetchNews('vr');
     </script>
 </body>
