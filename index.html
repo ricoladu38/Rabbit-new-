@@ -3,59 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rabbit Hub Pro + Haptics</title>
+    <title>Rabbit Pro Hub</title>
     <style>
-        :root { --orange: #ff4e00; --bg: #000; --card: #121212; --text: #fff; }
-        body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; padding: 0; overflow-x: hidden; }
+        :root { --orange: #ff4e00; --bg: #000; --card: #151515; --text: #fff; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding: 0; overflow-x: hidden; touch-action: pan-y; }
 
-        /* Navigation */
+        /* Tabs avec style Rabbit */
         .tabs { 
             display: flex; background: #000; position: sticky; top: 0; z-index: 100;
             border-bottom: 2px solid var(--orange);
         }
-        .tab-btn { flex: 1; padding: 15px 2px; border: none; background: none; color: #555; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; }
+        .tab-btn { flex: 1; padding: 18px 5px; border: none; background: none; color: #666; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; }
         .tab-btn.active { color: var(--orange); }
 
-        /* Bouton Actualiser */
-        #refresh-btn {
-            position: fixed; bottom: 20px; right: 20px; width: 50px; height: 50px;
-            background: var(--orange); border-radius: 50%; border: none;
-            box-shadow: 0 4px 15px rgba(255, 78, 0, 0.4); z-index: 1000;
-            display: flex; align-items: center; justify-content: center;
-        }
-        #refresh-btn svg { width: 26px; height: 26px; fill: white; }
-
-        /* Flux */
-        .feed { padding: 10px; padding-bottom: 90px; }
-        .news-item { background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 12px; border: 1px solid #222; }
-        .news-item.open { border-color: var(--orange); }
-        .news-meta { font-size: 0.6rem; color: var(--orange); margin-bottom: 5px; font-weight: bold; text-transform: uppercase; display: flex; justify-content: space-between; }
-        .news-title { font-size: 0.95rem; font-weight: 700; line-height: 1.4; }
-        .news-desc { display: none; font-size: 0.85rem; color: #bbb; margin-top: 10px; padding-top: 10px; border-top: 1px solid #333; }
-        .news-item.open .news-desc { display: block; }
+        /* Conteneur de flux */
+        .feed { padding: 12px; padding-bottom: 100px; }
+        .news-item { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #222; }
+        .news-title { font-size: 0.95rem; font-weight: bold; line-height: 1.4; }
+        .news-meta { font-size: 0.65rem; color: var(--orange); margin-bottom: 8px; display: flex; justify-content: space-between; }
         
-        .loader { text-align: center; padding: 60px 20px; color: var(--orange); font-size: 0.8rem; font-weight: bold; }
+        .news-desc { display: none; font-size: 0.85rem; color: #ccc; margin-top: 10px; padding-top: 10px; border-top: 1px solid #333; }
+        .news-item.open .news-desc { display: block; }
 
-        /* Animation au secouement */
-        @keyframes shake-ui { 0% { transform: translateX(0); } 25% { transform: translateX(4px); } 75% { transform: translateX(-4px); } 100% { transform: translateX(0); } }
-        .shaking { animation: shake-ui 0.2s ease-in-out; }
+        /* Bouton Refresh flottant */
+        #refresh-btn {
+            position: fixed; bottom: 25px; right: 25px; width: 55px; height: 55px;
+            background: var(--orange); border-radius: 50%; border: none;
+            display: flex; align-items: center; justify-content: center; z-index: 200;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        #refresh-btn svg { width: 28px; height: 28px; fill: white; }
+
+        .loader { text-align: center; padding: 50px; color: var(--orange); font-size: 0.8rem; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div class="tabs">
-        <button class="tab-btn active" onclick="changeTab(event, 'wear')">VR & AR</button>
-        <button class="tab-btn" onclick="changeTab(event, 'phone')">Smartphones</button>
-        <button class="tab-btn" onclick="changeTab(event, 'game')">Gaming</button>
+        <button id="tab-wear" class="tab-btn active" onclick="changeTab('wear')">VR & AR</button>
+        <button id="tab-phone" class="tab-btn" onclick="changeTab('phone')">Phones</button>
+        <button id="tab-game" class="tab-btn" onclick="changeTab('game')">Gaming</button>
+    </div>
+
+    <div id="feed-container" class="feed">
+        <div class="loader">CHARGEMENT...</div>
     </div>
 
     <button id="refresh-btn" onclick="triggerRefresh()">
         <svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
     </button>
-
-    <div id="feed-container" class="feed">
-        <div class="loader">CHARGEMENT...</div>
-    </div>
 
     <script>
         const SOURCES = {
@@ -65,162 +61,98 @@
         };
 
         let currentCat = 'wear';
+
+        // --- GESTION DES COMMANDES MATÉRIELLES RABBIT R1 ---
+
+        // 1. MOLETTE (SCROLL WHEEL)
+        // Le R1 envoie souvent des touches ArrowUp/ArrowDown pour la molette latérale
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') {
+                window.scrollBy({ top: 100, behavior: 'smooth' });
+            } else if (e.key === 'ArrowUp') {
+                window.scrollBy({ top: -100, behavior: 'smooth' });
+            }
+        });
+
+        // 2. SECOUSSE (SHAKE)
+        // Utilisation de la détection de mouvement standard si disponible
         let lastShake = 0;
-
-        // 1. SCROLL MOLETTE R1
-        window.addEventListener('wheel', (e) => {
-            window.scrollBy({ top: e.deltaY * 6, behavior: 'auto' });
-        }, { passive: true });
-
-        // 2. SECOURS (ACCELÉROMÈTRE) + VIBRATION
-        if (window.DeviceMotionEvent) {
-            window.addEventListener('devicemotion', (e) => {
-                const acc = e.accelerationIncludingGravity;
-                if (!acc) return;
-                
-                const threshold = 16; 
-                const delta = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
-                
-                const now = Date.now();
-                if (delta > threshold && (now - lastShake > 2000)) {
-                    lastShake = now;
-                    triggerRefresh();
+        window.addEventListener('devicemotion', (event) => {
+            const acc = event.accelerationIncludingGravity;
+            if (acc) {
+                let total = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
+                if (total > 25) { // Seuil de secousse
+                    let now = Date.now();
+                    if (now - lastShake > 2000) {
+                        lastShake = now;
+                        triggerRefresh();
+                    }
                 }
-            });
+            }
+        }, true);
+
+        // 3. VIBRATION (HAPTIC)
+        function vibrate() {
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
         }
 
-        // 3. FONCTION DE VIBRATION & ACTUALISATION
+        // --- FONCTIONS DU FLUX ---
+
         function triggerRefresh() {
-            // Vibration haptique (impulsion double courte)
-            if (navigator.vibrate) {
-                navigator.vibrate([40, 30, 40]);
-            }
-            
-            document.body.classList.add('shaking');
+            vibrate();
             fetchNews(currentCat);
-            setTimeout(() => document.body.classList.remove('shaking'), 500);
         }
 
         async function fetchNews(cat) {
             const container = document.getElementById('feed-container');
             container.innerHTML = '<div class="loader">MISE À JOUR...</div>';
-            let allArticles = [];
-
+            
             try {
+                let allArticles = [];
                 for (let url of SOURCES[cat]) {
                     const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
                     const data = await res.json();
                     if (data.status === 'ok') {
                         allArticles = [...allArticles, ...data.items.map(i => ({
-                            ...i, 
-                            src: data.feed.title.length > 12 ? data.feed.title.substring(0,10) + '..' : data.feed.title
+                            ...i,
+                            src: data.feed.title.substring(0, 10)
                         }))];
                     }
                 }
+                
                 allArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
                 
                 container.innerHTML = '';
                 allArticles.slice(0, 15).forEach(item => {
-                    const card = document.createElement('div');
-                    card.className = 'news-item';
-                    card.onclick = () => {
-                        card.classList.toggle('open');
-                        if (navigator.vibrate) navigator.vibrate(10); // Petit clic tactile à l'ouverture
-                    };
+                    const div = document.createElement('div');
+                    div.className = 'news-item';
+                    div.onclick = () => { div.classList.toggle('open'); vibrate(); };
                     
-                    const cleanText = (item.description || "").replace(/<[^>]*>?/gm, '').substring(0, 170);
-
-                    card.innerHTML = `
+                    const desc = (item.description || "").replace(/<[^>]*>?/gm, '').substring(0, 150);
+                    
+                    div.innerHTML = `
                         <div class="news-meta"><span>${item.src}</span><span>${new Date(item.pubDate).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}</span></div>
                         <div class="news-title">${item.title}</div>
-                        <div class="news-desc">
-                            ${cleanText}...<br>
-                            <a href="${item.link}" target="_blank" class="read-more" style="display:inline-block;margin-top:10px;background:var(--orange);color:white;padding:8px 15px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:0.7rem;">LIRE LA SUITE</a>
-                        </div>
+                        <div class="news-desc">${desc}...<br><br><a href="${item.link}" target="_blank" style="color:var(--orange); text-decoration:none; font-weight:bold;">LIRE LA SOURCE</a></div>
                     `;
-                    container.appendChild(card);
+                    container.appendChild(div);
                 });
-            } catch (e) {
+            } catch (err) {
                 container.innerHTML = '<div class="loader">ERREUR RÉSEAU</div>';
             }
         }
 
-        function changeTab(e, cat) {
-            if (navigator.vibrate) navigator.vibrate(20);
+        function changeTab(cat) {
+            vibrate();
             currentCat = cat;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            e.currentTarget.classList.add('active');
+            document.getElementById('tab-' + (cat === 'wear' ? 'wear' : cat === 'phone' ? 'phone' : 'game')).classList.add('active');
             fetchNews(cat);
             window.scrollTo(0,0);
         }
 
-        window.onload = () => fetchNews('wear');
-    </script>
-</body>
-</html>
-        async function fetchNews(cat) {
-            const container = document.getElementById('feed-container');
-            container.innerHTML = '<div class="loader">Chargement flux...</div>';
-
-            let allArticles = [];
-
-            try {
-                for (let url of SOURCES[cat]) {
-                    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
-                    const data = await res.json();
-                    
-                    if (data.status === 'ok') {
-                        const articles = data.items.map(item => ({
-                            ...item,
-                            sourceDisplay: data.feed.title.length > 15 ? data.feed.title.substring(0,12)+'...' : data.feed.title
-                        }));
-                        allArticles = [...allArticles, ...articles];
-                    }
-                }
-
-                // Tri chronologique
-                allArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-
-                container.innerHTML = '';
-                
-                // On limite à 12 pour ne pas surcharger le Rabbit R1
-                allArticles.slice(0, 12).forEach(item => {
-                    const card = document.createElement('div');
-                    card.className = 'news-item';
-                    card.onclick = () => card.classList.toggle('open');
-                    
-                    const temp = document.createElement('div');
-                    temp.innerHTML = item.description || item.content || "";
-                    const cleanText = temp.textContent || temp.innerText || "Cliquez pour lire le résumé.";
-
-                    card.innerHTML = `
-                        <div class="news-meta">
-                            <span>${item.sourceDisplay}</span>
-                            <span>${new Date(item.pubDate).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})}</span>
-                        </div>
-                        <div class="news-title">${item.title}</div>
-                        <div class="news-desc">
-                            ${cleanText.substring(0, 170).trim()}...
-                            <br>
-                            <a href="${item.link}" target="_blank" class="read-more" onclick="event.stopPropagation();">LIRE L'ARTICLE</a>
-                        </div>
-                    `;
-                    container.appendChild(card);
-                });
-
-            } catch (e) {
-                container.innerHTML = '<div class="loader">ERREUR RÉSEAU.<br><small>Vérifie ta connexion R1</small></div>';
-            }
-        }
-
-        function changeTab(e, cat) {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            e.currentTarget.classList.add('active');
-            fetchNews(cat);
-            window.scrollTo(0,0);
-        }
-
-        // Lancer sur l'onglet Wearables par défaut
         window.onload = () => fetchNews('wear');
     </script>
 </body>
