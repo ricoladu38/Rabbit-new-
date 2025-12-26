@@ -1,16 +1,16 @@
 const feeds = [
-  { name: "UploadVR", url: "https://uploadvr.com/feed/" },
-  { name: "Road to VR", url: "https://www.roadtovr.com/feed/" },
-  { name: "XR Today", url: "https://www.xrtoday.com/feed/" },
-  { name: "IGN Gaming", url: "https://feeds.ign.com/ign/games-all" },
-  { name: "GameSpot", url: "https://www.gamespot.com/feeds/news/" }
+  { name: "FRAndroid", url: "https://www.frandroid.com/feed" },
+  { name: "Journal du Geek", url: "https://www.journaldugeek.com/feed/" },
+  { name: "Numerama", url: "https://www.numerama.com/feed/" },
+  { name: "Gamekult", url: "https://www.gamekult.com/feed" },
+  { name: "Les Numériques", url: "https://www.lesnumeriques.com/rss.xml" }
 ];
 
 const container = document.getElementById("news");
 const notif = document.getElementById("notif");
 const btn = document.getElementById("refresh");
 
-const STORAGE_KEY = "lastSeenDate";
+const STORAGE_KEY = "lastSeenFR";
 
 btn.addEventListener("click", loadNews);
 
@@ -48,7 +48,7 @@ async function loadNews() {
         `;
       });
     } catch (e) {
-      html += `<div class="item">Erreur source ${feed.name}</div>`;
+      html += `<div class="item">Erreur ${feed.name}</div>`;
     }
   }
 
