@@ -20,7 +20,6 @@
         .card-actions { display: flex; gap: 8px; margin-top: 12px; }
         .action-btn { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; color: white; font-size: 0.7rem; text-align: center; }
         
-        /* Menu Config Large */
         #options-menu { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 300; display: none; flex-direction: column; }
         .menu-content { padding: 20px; overflow-y: auto; flex-grow: 1; }
         .source-item { display: flex; align-items: center; justify-content: space-between; background: #111; padding: 10px; margin-bottom: 5px; border-radius: 8px; font-size: 0.8rem; }
@@ -37,7 +36,7 @@
     <div class="header">
         <div class="tabs">
             <button id="tab-wear" class="tab-btn active" onclick="changeCategory('wear')">VR/AR</button>
-            <button id="tab-phone" class="tab-btn" onclick="changeCategory('phone')">Phones</button>
+            <button id="tab-phone" class="tab-btn" onclick="changeCategory('phone')">High-Tech</button>
             <button id="tab-game" class="tab-btn" onclick="changeCategory('game')">Gaming</button>
         </div>
     </div>
@@ -48,17 +47,14 @@
     <div id="options-menu">
         <div class="menu-content">
             <h3 style="color:var(--orange); margin-top:0;">CONFIGURATION</h3>
-            
             <div style="display:flex; gap:10px; margin-bottom:20px;">
                 <button onclick="setLang('fr')" id="btn-fr" class="action-btn" style="background:#222;">FRANÇAIS</button>
                 <button onclick="setLang('en')" id="btn-en" class="action-btn" style="background:#222;">ENGLISH</button>
             </div>
-
             <div id="source-selector">
                 <p style="font-size:0.7rem; color:#666;">SÉLECTIONNER LES SOURCES :</p>
                 <div id="sources-list"></div>
             </div>
-
             <button onclick="clearHistory()" style="background:#400; color:white; width:100%; margin-top:20px; padding:10px; border:none; border-radius:8px;">🗑️ EFFACER HISTORIQUE</button>
         </div>
         <button onclick="toggleMenu()" style="background:var(--orange); color:white; padding:15px; border:none; width:100%; font-weight:bold;">VALIDER ET FERMER</button>
@@ -72,8 +68,8 @@
         let currentCat = 'wear';
         let currentLang = localStorage.getItem('newsLang') || 'fr';
         let readArticles = JSON.parse(localStorage.getItem('readArticles') || '[]');
-        
-        // Liste étendue des sources
+        let enabledSources = JSON.parse(localStorage.getItem('enabledSources')) || {};
+
         const ALL_SOURCES = {
             fr: {
                 wear: [
@@ -109,9 +105,6 @@
             }
         };
 
-        // Charger les préférences de sources
-        let enabledSources = JSON.parse(localStorage.getItem('enabledSources')) || {};
-
         function cleanForRabbit(text) {
             if(!text) return "";
             return text.replace(/[\u2018\u2019]/g, "'").replace(/[^\x00-\x7F]/g, i => i.normalize("NFD").replace(/[\u0300-\u036f]/g, "")).replace(/['"]/g, " ").trim();
@@ -132,7 +125,7 @@
         }
 
         function toggleSource(url) {
-            enabledSources[url] = !enabledSources[url];
+            enabledSources[url] = document.getElementById('check-' + btoa(url)).checked;
             localStorage.setItem('enabledSources', JSON.stringify(enabledSources));
         }
 
@@ -140,18 +133,16 @@
             const list = document.getElementById('sources-list');
             list.innerHTML = "";
             const currentSet = ALL_SOURCES[currentLang];
-            
             for (let cat in currentSet) {
                 const title = document.createElement('div');
                 title.style = "color:var(--orange); font-size:0.6rem; margin-top:10px; text-transform:uppercase;";
-                title.innerText = cat;
+                title.innerText = (cat === 'phone') ? 'High-Tech' : cat;
                 list.appendChild(title);
-                
                 currentSet[cat].forEach(src => {
                     if (enabledSources[src.url] === undefined) enabledSources[src.url] = true;
                     const div = document.createElement('div');
                     div.className = "source-item";
-                    div.innerHTML = `<span>${src.name}</span><input type="checkbox" ${enabledSources[src.url] ? 'checked' : ''} onchange="toggleSource('${src.url}')">`;
+                    div.innerHTML = `<span>${src.name}</span><input type="checkbox" id="check-${btoa(src.url)}" ${enabledSources[src.url] ? 'checked' : ''} onchange="toggleSource('${src.url}')">`;
                     list.appendChild(div);
                 });
             }
@@ -164,7 +155,6 @@
             try {
                 let all = [];
                 const urls = ALL_SOURCES[currentLang][cat].filter(s => enabledSources[s.url] !== false);
-                
                 for (let src of urls) {
                     const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(src.url)}`);
                     const d = await res.json();
@@ -188,9 +178,7 @@
                         <div class="news-desc">
                             ${item.desc}...
                             <div class="card-actions">
-                                <button class="action-btn" style="background:#333;" 
-                                    data-title="${item.title.replace(/"/g, '&quot;')}" data-desc="${item.desc.replace(/"/g, '&quot;')}"
-                                    onclick="event.stopPropagation(); speakFromElement(this)">🔊 ÉCOUTER</button>
+                                <button class="action-btn" style="background:#333;" data-title="${item.title.replace(/"/g, '&quot;')}" data-desc="${item.desc.replace(/"/g, '&quot;')}" onclick="event.stopPropagation(); speakFromElement(this)">🔊 ÉCOUTER</button>
                                 <button class="action-btn" style="background:var(--orange);" onclick="event.stopPropagation(); window.location.href='${item.link}'">LIRE</button>
                             </div>
                         </div>`;
@@ -212,7 +200,7 @@
         }
 
         function setLang(l) { currentLang = l; localStorage.setItem('newsLang', l); renderSourceMenu(); }
-        function clearHistory() { readArticles = []; localStorage.setItem('readArticles', '[]'); toggleMenu(); }
+        function clearHistory() { readArticles = []; localStorage.setItem('readArticles', '[]'); fetchNews(currentCat); toggleMenu(); }
         function triggerRefresh() { fetchNews(currentCat); }
         function changeCategory(cat) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -228,5 +216,4 @@
         };
     </script>
 </body>
-</html>
 </html>
