@@ -3,48 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rabbit News Elite</title>
     <style>
         :root { --orange: #ff4e00; --bg: #000; --card: #151515; --text: #fff; --read: #0a0a0a; }
         body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding: 0; overflow: hidden; }
 
-        /* Navigation & Header */
+        /* Navigation */
         .header { background: #000; border-bottom: 2px solid var(--orange); position: sticky; top: 0; z-index: 100; }
         .tabs { display: flex; height: 45px; }
-        .tab-btn { flex: 1; border: none; background: none; color: #666; font-size: 0.6rem; font-weight: bold; text-transform: uppercase; }
+        .tab-btn { flex: 1; border: none; background: none; color: #666; font-size: 0.65rem; font-weight: bold; text-transform: uppercase; }
         .tab-btn.active { color: var(--orange); }
 
         /* Content Area */
-        #main-scroll { height: calc(100vh - 45px); overflow-y: auto; scroll-behavior: smooth; }
-        .feed { padding: 12px; padding-bottom: 120px; }
+        #main-scroll { height: calc(100vh - 45px); overflow-y: auto; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+        .feed-container { padding: 12px; padding-bottom: 100px; }
 
         /* News Cards */
-        .news-item { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #222; transition: all 0.3s; }
+        .news-item { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #222; transition: opacity 0.3s; }
         .news-item.read { opacity: 0.4; background: var(--read); }
-        .news-title { font-size: 0.95rem; font-weight: bold; line-height: 1.4; margin-bottom: 5px; }
+        .news-title { font-size: 0.95rem; font-weight: bold; line-height: 1.4; }
         .news-meta { font-size: 0.6rem; color: var(--orange); display: flex; justify-content: space-between; margin-bottom: 8px; }
-        
         .news-desc { display: none; font-size: 0.85rem; color: #ccc; margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
         .news-item.open .news-desc { display: block; }
 
-        /* Actions dans la carte */
+        /* Buttons */
         .card-actions { display: flex; gap: 10px; margin-top: 15px; }
-        .action-btn { flex: 1; padding: 10px; border-radius: 8px; border: none; font-weight: bold; font-size: 0.75rem; color: white; cursor: pointer; }
+        .action-btn { flex: 1; padding: 12px; border-radius: 10px; border: none; font-weight: bold; color: white; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 0.75rem; }
+        .btn-speak { background: #333; }
         .btn-read { background: var(--orange); }
-        .btn-speak { background: #333; display: flex; align-items: center; justify-content: center; gap: 5px; }
 
-        /* Menu Options Floating */
-        #options-menu { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a1a; padding: 20px; border-radius: 20px; border: 2px solid var(--orange); z-index: 300; display: none; width: 80%; }
-        .opt-title { color: var(--orange); font-weight: bold; margin-bottom: 15px; text-align: center; }
-        .lang-toggle { display: flex; background: #000; border-radius: 10px; padding: 5px; margin-bottom: 20px; }
-        .lang-btn { flex: 1; padding: 10px; border: none; background: none; color: #555; font-weight: bold; }
-        .lang-btn.active { background: var(--orange); color: white; border-radius: 8px; }
+        /* Overlay Options */
+        #options-menu { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a1a; padding: 20px; border-radius: 20px; border: 2px solid var(--orange); z-index: 300; display: none; width: 80%; text-align: center; }
+        .lang-btn { padding: 10px 20px; margin: 5px; border-radius: 8px; border: none; background: #333; color: white; font-weight: bold; }
+        .lang-btn.active { background: var(--orange); }
 
-        /* Boutons fixes */
-        .fab { position: fixed; width: 50px; height: 50px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; z-index: 200; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
-        #refresh-btn { bottom: 20px; right: 20px; background: var(--orange); }
-        #opt-trigger { bottom: 20px; left: 20px; background: #333; }
-        .fab svg { width: 24px; height: 24px; fill: white; }
+        /* Fixed FAB */
+        .fab { position: fixed; width: 50px; height: 50px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; z-index: 200; box-shadow: 0 4px 15px rgba(0,0,0,0.6); font-size: 20px; }
+        #refresh-btn { bottom: 20px; right: 20px; background: var(--orange); color: white; }
+        #opt-trigger { bottom: 20px; left: 20px; background: #333; color: white; }
 
         .loader { text-align: center; padding: 50px; color: var(--orange); font-weight: bold; }
     </style>
@@ -59,26 +54,19 @@
         </div>
     </div>
 
-    <button class="fab" id="opt-trigger" onclick="toggleMenu()">
-        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
-    </button>
-
-    <button class="fab" id="refresh-btn" onclick="triggerRefresh()">
-        <svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
-    </button>
+    <button class="fab" id="opt-trigger" onclick="toggleMenu()">⚙️</button>
+    <button class="fab" id="refresh-btn" onclick="triggerRefresh()">🔄</button>
 
     <div id="options-menu">
-        <div class="opt-title">PARAMÈTRES</div>
-        <div class="lang-toggle">
-            <button id="ln-fr" class="lang-btn active" onclick="setLang('fr')">FRANÇAIS</button>
-            <button id="ln-en" class="lang-btn" onclick="setLang('en')">ENGLISH</button>
-        </div>
-        <button class="action-btn btn-read" onclick="clearReadHistory()" style="width:100%; background:#444; margin-bottom:10px;">Réinitialiser l'historique</button>
-        <button class="action-btn btn-read" onclick="toggleMenu()" style="width:100%;">FERMER</button>
+        <p style="color:var(--orange); font-weight:bold;">SOURCES & LANGUE</p>
+        <button id="btn-fr" class="lang-btn" onclick="setLang('fr')">Français</button>
+        <button id="btn-en" class="lang-btn" onclick="setLang('en')">English</button>
+        <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
+        <button class="action-btn btn-read" style="width:100%;" onclick="toggleMenu()">OK</button>
     </div>
 
     <div id="main-scroll">
-        <div id="feed-container"></div>
+        <div id="feed-container" class="feed-container"></div>
     </div>
 
     <script>
@@ -88,77 +76,57 @@
         let readArticles = JSON.parse(localStorage.getItem('readArticles') || '[]');
 
         const SOURCES = {
-            fr: {
-                wear: ['https://www.realite-virtuelle.com/feed/'],
-                phone: ['https://www.frandroid.com/feed'],
-                game: ['https://gamergen.com/rss/news']
+            fr: { 
+                wear: ['https://www.realite-virtuelle.com/feed/'], 
+                phone: ['https://www.frandroid.com/feed'], 
+                game: ['https://gamergen.com/rss/news'] 
             },
-            en: {
-                wear: ['https://uploadvr.com/rss/'],
-                phone: ['https://www.theverge.com/rss/index.xml'],
-                game: ['https://feeds.feedburner.com/ign/news']
+            en: { 
+                wear: ['https://uploadvr.com/rss/'], 
+                phone: ['https://www.theverge.com/rss/index.xml'], 
+                game: ['https://feeds.feedburner.com/ign/news'] 
             }
         };
 
-        // --- SYNTHÈSE VOCALE ---
-        function speak(text) {
-            window.speechSynthesis.cancel();
-            const msg = new SpeechSynthesisUtterance(text);
-            msg.lang = currentLang === 'fr' ? 'fr-FR' : 'en-US';
-            msg.rate = 1.0;
-            window.speechSynthesis.speak(msg);
-            doVibrate([30, 50]);
+        // --- FONCTION SPEAK VIA PLUGIN MESSAGE HANDLER (TON SYSTÈME) ---
+        function speakNews(title, description) {
+            const text = `News: ${title}. Résumé: ${description}`;
+            if (typeof PluginMessageHandler !== 'undefined') {
+                const payload = {
+                    message: text,
+                    useLLM: true,
+                    wantsR1Response: true,
+                    wantsJournalEntry: false 
+                };
+                PluginMessageHandler.postMessage(JSON.stringify(payload));
+            } else {
+                // Fallback navigateur
+                const msg = new SpeechSynthesisUtterance(text);
+                msg.lang = currentLang === 'fr' ? 'fr-FR' : 'en-US';
+                window.speechSynthesis.speak(msg);
+            }
+            if(navigator.vibrate) navigator.vibrate(40);
         }
 
-        function doVibrate(p) { if(navigator.vibrate) navigator.vibrate(p); }
-
-        // --- HARDWARE SDK ---
+        // --- HARDWARE MODULE (RABBIT R1) ---
         const hardwareModule = {
-            handleScrollUp: () => document.getElementById('main-scroll').scrollBy(0, -180),
-            handleScrollDown: () => document.getElementById('main-scroll').scrollBy(0, 180),
+            handleScrollUp: () => document.getElementById('main-scroll').scrollBy(0, -220),
+            handleScrollDown: () => document.getElementById('main-scroll').scrollBy(0, 220),
             handlePTT: () => triggerRefresh()
         };
         pageModules.hardware = hardwareModule;
 
-        function initializeHardwareListeners() {
+        function initHardware() {
             window.addEventListener('scrollUp', hardwareModule.handleScrollUp);
             window.addEventListener('scrollDown', hardwareModule.handleScrollDown);
             window.addEventListener('sideClick', hardwareModule.handlePTT);
         }
 
-        // --- GESTION OPTIONS ---
-        function toggleMenu() {
-            const m = document.getElementById('options-menu');
-            m.style.display = m.style.display === 'block' ? 'none' : 'block';
-            doVibrate(20);
-        }
-
-        function setLang(l) {
-            currentLang = l;
-            localStorage.setItem('newsLang', l);
-            document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('ln-'+l).classList.add('active');
-            toggleMenu();
-            fetchNews(currentCat);
-        }
-
-        function clearReadHistory() {
-            readArticles = [];
-            localStorage.setItem('readArticles', '[]');
-            fetchNews(currentCat);
-            toggleMenu();
-        }
-
-        // --- LOGIQUE NEWS ---
-        function triggerRefresh() {
-            doVibrate([50, 50]);
-            fetchNews(currentCat);
-        }
-
+        // --- LOGIQUE CORE ---
         async function fetchNews(cat) {
             currentCat = cat;
             const container = document.getElementById('feed-container');
-            container.innerHTML = '<div class="loader">SYNCHRONISATION...</div>';
+            container.innerHTML = '<div class="loader">CHARGEMENT...</div>';
             
             try {
                 let all = [];
@@ -166,26 +134,20 @@
                 for (let url of urls) {
                     const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
                     const d = await res.json();
-                    if (d.status === 'ok') all = [...all, ...d.items.map(i => ({...i, src: d.feed.title.substring(0,10)}))];
+                    if (d.status === 'ok') all = [...all, ...d.items.map(i => ({...i, src: d.feed.title.substring(0,12)}))];
                 }
                 all.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
                 
                 container.innerHTML = '';
-                all.slice(0, 12).forEach(item => {
-                    const isRead = readArticles.includes(item.guid || item.link);
+                all.slice(0, 15).forEach(item => {
+                    const id = item.guid || item.link;
+                    const isRead = readArticles.includes(id);
                     const div = document.createElement('div');
                     div.className = `news-item ${isRead ? 'read' : ''}`;
                     
-                    const desc = (item.description || "").replace(/<[^>]*>?/gm, '').substring(0, 180);
-                    const titleEscaped = item.title.replace(/'/g, "\\'");
-                    const descEscaped = desc.replace(/'/g, "\\'");
-
-                    div.onclick = (e) => {
-                        if(e.target.tagName !== 'BUTTON' && !e.target.hasAttribute('onclick')) {
-                            div.classList.toggle('open');
-                            if(!isRead) markAsRead(item.guid || item.link);
-                        }
-                    };
+                    const desc = (item.description || "").replace(/<[^>]*>?/gm, '').substring(0, 200);
+                    const cleanT = item.title.replace(/'/g, " ");
+                    const cleanD = desc.replace(/'/g, " ");
 
                     div.innerHTML = `
                         <div class="news-meta"><span>${item.src}</span><span>${new Date(item.pubDate).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span></div>
@@ -193,29 +155,45 @@
                         <div class="news-desc">
                             ${desc}...
                             <div class="card-actions">
-                                <button class="action-btn btn-speak" onclick="speak('${titleEscaped}. ${descEscaped}')">
-                                    <svg style="width:16px; fill:white;" viewBox="0 0 24 24"><path d="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.85 14,18.71V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16.02C15.5,15.29 16.5,13.77 16.5,12M3,9V15H7L12,20V4L7,9H3Z"/></svg>
-                                    ÉCOUTER
-                                </button>
-                                <button class="action-btn btn-read" onclick="window.location.href='${item.link}'">LIRE</button>
+                                <button class="action-btn btn-speak" onclick="event.stopPropagation(); speakNews('${cleanT}', '${cleanD}')">🔊 ÉCOUTER</button>
+                                <button class="action-btn btn-read" onclick="event.stopPropagation(); window.location.href='${item.link}'">LIRE</button>
                             </div>
                         </div>
                     `;
+                    div.onclick = () => { 
+                        div.classList.toggle('open'); 
+                        if(!isRead) {
+                            readArticles.push(id);
+                            localStorage.setItem('readArticles', JSON.stringify(readArticles.slice(-50)));
+                        }
+                    };
                     container.appendChild(div);
                 });
             } catch (e) { container.innerHTML = '<div class="loader">ERREUR RÉSEAU</div>'; }
         }
 
-        function markAsRead(id) {
-            if(!readArticles.includes(id)) {
-                readArticles.push(id);
-                if(readArticles.length > 50) readArticles.shift();
-                localStorage.setItem('readArticles', JSON.stringify(readArticles));
-            }
+        function toggleMenu() {
+            const m = document.getElementById('options-menu');
+            m.style.display = m.style.display === 'block' ? 'none' : 'block';
+            updateLangUI();
         }
 
+        function setLang(l) {
+            currentLang = l;
+            localStorage.setItem('newsLang', l);
+            updateLangUI();
+            fetchNews(currentCat);
+            setTimeout(toggleMenu, 300);
+        }
+
+        function updateLangUI() {
+            document.getElementById('btn-fr').className = `lang-btn ${currentLang === 'fr' ? 'active' : ''}`;
+            document.getElementById('btn-en').className = `lang-btn ${currentLang === 'en' ? 'active' : ''}`;
+        }
+
+        function triggerRefresh() { if(navigator.vibrate) navigator.vibrate([30,30]); fetchNews(currentCat); }
+
         function changeCategory(cat) {
-            doVibrate(30);
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('tab-' + cat).classList.add('active');
             fetchNews(cat);
@@ -223,10 +201,7 @@
         }
 
         window.onload = () => {
-            initializeHardwareListeners();
-            // Appliquer la langue sauvegardée au bouton
-            document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('ln-'+currentLang).classList.add('active');
+            initHardware();
             fetchNews('wear');
         };
     </script>
