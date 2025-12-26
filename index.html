@@ -7,39 +7,26 @@
     <style>
         :root { --orange: #ff4e00; --bg: #000; --card: #151515; --text: #fff; --read: #0a0a0a; }
         body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding: 0; overflow: hidden; }
-        
-        /* Navigation */
         .header { background: #000; border-bottom: 2px solid var(--orange); position: sticky; top: 0; z-index: 100; }
         .tabs { display: flex; height: 45px; }
         .tab-btn { flex: 1; border: none; background: none; color: #666; font-size: 0.6rem; font-weight: bold; text-transform: uppercase; }
         .tab-btn.active { color: var(--orange); }
-
-        /* Contenu */
         #main-scroll { height: calc(100vh - 45px); overflow-y: auto; scroll-behavior: smooth; }
         .feed-container { padding: 12px; padding-bottom: 100px; }
-
-        /* Cartes News */
         .news-item { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #222; }
         .news-item.read { opacity: 0.3; }
         .news-title { font-size: 0.95rem; font-weight: bold; line-height: 1.3; margin: 5px 0; }
         .news-meta { font-size: 0.55rem; color: var(--orange); display: flex; justify-content: space-between; }
         .news-desc { display: none; font-size: 0.8rem; color: #ccc; margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
         .news-item.open .news-desc { display: block; }
-
-        /* Actions */
         .card-actions { display: flex; gap: 8px; margin-top: 12px; }
-        .action-btn { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; color: white; font-size: 0.75rem; }
-
-        /* Menu Options */
+        .action-btn { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; color: white; font-size: 0.75rem; text-align: center; text-decoration: none; }
         #options-menu { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a1a; padding: 20px; border-radius: 20px; border: 2px solid var(--orange); z-index: 300; display: none; width: 80%; text-align: center; }
         .lang-btn { padding: 10px 15px; margin: 5px; border-radius: 8px; border: 1px solid #444; background: #000; color: white; font-weight: bold; }
         .lang-btn.active { background: var(--orange); }
-
-        /* FABs */
         .fab { position: fixed; width: 45px; height: 45px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; z-index: 200; font-size: 18px; color: white; }
         #refresh-btn { bottom: 15px; right: 15px; background: var(--orange); }
         #opt-trigger { bottom: 15px; left: 15px; background: #333; }
-        
         .loader { text-align: center; padding: 40px; color: var(--orange); font-size: 0.8rem; }
     </style>
 </head>
@@ -69,7 +56,6 @@
     </div>
 
     <script>
-        const pageModules = {};
         let currentCat = 'wear';
         let currentLang = localStorage.getItem('newsLang') || 'fr';
         let readArticles = JSON.parse(localStorage.getItem('readArticles') || '[]');
@@ -87,43 +73,39 @@
             }
         };
 
-        // --- NETTOYAGE POUR IA RABBIT ---
         function cleanForRabbit(text) {
-            return text
-                .replace(/[\u2018\u2019]/g, "'")
-                .replace(/[\u201C\u201D\u00AB\u00BB]/g, '"')
+            if(!text) return "";
+            return text.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D\u00AB\u00BB]/g, '"')
                 .replace(/[^\x00-\x7F]/g, i => i.normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
-                .replace(/['"]/g, " ")
-                .trim();
+                .replace(/['"]/g, " ").trim();
         }
 
         function speakFromElement(btn) {
-            const rawTitle = btn.getAttribute('data-title');
-            const rawDesc = btn.getAttribute('data-desc');
-            const textToSpeak = cleanForRabbit(rawTitle) + ". " + cleanForRabbit(rawDesc);
-
+            const t = btn.getAttribute('data-title');
+            const d = btn.getAttribute('data-desc');
+            const text = cleanForRabbit(t) + ". " + cleanForRabbit(d);
             if (typeof PluginMessageHandler !== 'undefined') {
-                PluginMessageHandler.postMessage(JSON.stringify({
-                    message: textToSpeak,
-                    useLLM: true,
-                    wantsR1Response: true,
-                    wantsJournalEntry: false 
-                }));
+                PluginMessageHandler.postMessage(JSON.stringify({message: text, useLLM: true, wantsR1Response: true, wantsJournalEntry: false}));
             } else {
                 window.speechSynthesis.cancel();
-                const msg = new SpeechSynthesisUtterance(textToSpeak);
+                const msg = new SpeechSynthesisUtterance(text);
                 msg.lang = currentLang === 'fr' ? 'fr-FR' : 'en-US';
                 window.speechSynthesis.speak(msg);
             }
-            if(navigator.vibrate) navigator.vibrate(40);
         }
 
-        // --- LOGIQUE NEWS ---
+        function openArticle(url, id) {
+            if(!readArticles.includes(id)) {
+                readArticles.push(id);
+                localStorage.setItem('readArticles', JSON.stringify(readArticles.slice(-30)));
+            }
+            window.location.href = url;
+        }
+
         async function fetchNews(cat) {
             currentCat = cat;
             const container = document.getElementById('feed-container');
             container.innerHTML = '<div class="loader">Synchronisation...</div>';
-            
             try {
                 let all = [];
                 const urls = SOURCES[currentLang][cat];
@@ -132,23 +114,18 @@
                     const d = await res.json();
                     if (d.status === 'ok') {
                         all = [...all, ...d.items.map(i => ({
-                            title: i.title,
-                            link: i.link,
+                            title: i.title, link: i.link, 
                             desc: i.description.replace(/<[^>]*>?/gm, '').substring(0, 250).trim(),
-                            date: i.pubDate,
-                            src: d.feed.title.substring(0,12)
+                            date: i.pubDate, src: d.feed.title.substring(0,12)
                         }))];
                     }
                 }
-
                 all.sort((a, b) => new Date(b.date) - new Date(a.date));
                 container.innerHTML = '';
-                
                 all.slice(0, 15).forEach(item => {
                     const isRead = readArticles.includes(item.link);
                     const div = document.createElement('div');
                     div.className = `news-item ${isRead ? 'read' : ''}`;
-                    
                     div.innerHTML = `
                         <div class="news-meta"><span>${item.src}</span><span>${item.date.split(' ')[1]}</span></div>
                         <div class="news-title">${item.title}</div>
@@ -159,52 +136,28 @@
                                     data-title="${item.title.replace(/"/g, '&quot;')}" 
                                     data-desc="${item.desc.replace(/"/g, '&quot;')}"
                                     onclick="event.stopPropagation(); speakFromElement(this)">🔊 ÉCOUTER</button>
-                                <button class="action-btn" style="background:var(--orange);" onclick="event.stopPropagation(); window.location.href='${item.link}'">LIRE</button>
+                                <button class="action-btn" style="background:var(--orange);" 
+                                    onclick="event.stopPropagation(); openArticle('${item.link}', '${item.link}')">LIRE</button>
                             </div>
                         </div>
                     `;
-                    div.onclick = () => {
-                        div.classList.toggle('open');
-                        if(!isRead) {
-                            readArticles.push(item.link);
-                            localStorage.setItem('readArticles', JSON.stringify(readArticles.slice(-30)));
-                            div.classList.add('read');
-                        }
-                    };
+                    div.onclick = () => { div.classList.toggle('open'); };
                     container.appendChild(div);
                 });
             } catch (e) { container.innerHTML = '<div class="loader">Erreur réseau</div>'; }
         }
 
-        // --- INTERFACE ---
         function toggleMenu() { 
             const m = document.getElementById('options-menu');
             m.style.display = (m.style.display === 'block') ? 'none' : 'block';
-            document.getElementById('btn-fr').className = `lang-btn ${currentLang === 'fr' ? 'active' : ''}`;
-            document.getElementById('btn-en').className = `lang-btn ${currentLang === 'en' ? 'active' : ''}`;
         }
-
-        function setLang(l) {
-            currentLang = l;
-            localStorage.setItem('newsLang', l);
-            toggleMenu();
-            fetchNews(currentCat);
-        }
-
-        function clearHistory() {
-            readArticles = [];
-            localStorage.setItem('readArticles', '[]');
-            fetchNews(currentCat);
-            toggleMenu();
-        }
-
+        function setLang(l) { currentLang = l; localStorage.setItem('newsLang', l); toggleMenu(); fetchNews(currentCat); }
+        function clearHistory() { readArticles = []; localStorage.setItem('readArticles', '[]'); fetchNews(currentCat); toggleMenu(); }
         function triggerRefresh() { fetchNews(currentCat); }
-
         function changeCategory(cat) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('tab-' + cat).classList.add('active');
             fetchNews(cat);
-            document.getElementById('main-scroll').scrollTop = 0;
         }
 
         window.onload = () => {
