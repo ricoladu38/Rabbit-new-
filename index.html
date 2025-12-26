@@ -1,118 +1,157 @@
-// Variable globale pour suivre la page actuelle (utilisée par initializeHardwareListeners)
-let currentPage = 'hardware'; 
-const pageModules = {};
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        :root { --orange: #ff4e00; --bg: #000; --card: #151515; --text: #fff; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding: 0; overflow: hidden; }
 
-function loadNewsPage(container) {
-    // 1. Structure HTML compatible avec ton CSS habituel
-    container.innerHTML = `
-        <div id="scroll-indicator"></div>
-        <div class="tabs">
-            <button class="tab-btn active" id="tab-wear" onclick="changeCategory('wear')">VR & AR</button>
-            <button class="tab-btn" id="tab-phone" onclick="changeCategory('phone')">Phones</button>
-            <button class="tab-btn" id="tab-game" onclick="changeCategory('game')">Gaming</button>
-        </div>
-        <div id="main-scroll" style="height: calc(100vh - 50px); overflow-y: auto;">
-            <div id="feed-container" class="feed">
-                <div class="loader">SYNCHRONISATION...</div>
-            </div>
-        </div>
-    `;
+        /* Navigation */
+        .tabs { display: flex; background: #000; border-bottom: 2px solid var(--orange); height: 50px; }
+        .tab-btn { flex: 1; border: none; background: none; color: #555; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; }
+        .tab-btn.active { color: var(--orange); }
 
-    // 2. Définition du module Hardware spécifique aux News
-    const hardwareModule = {
-        handleScrollUp: function() {
-            const scrollZone = document.getElementById('main-scroll');
-            if (scrollZone) {
-                scrollZone.scrollBy(0, -180);
-                this.updateScrollIndicator();
-                if (navigator.vibrate) navigator.vibrate(5);
-            }
-        },
+        /* Scroll Area */
+        #main-scroll { height: calc(100vh - 50px); overflow-y: auto; scroll-behavior: smooth; }
+        .feed { padding: 12px; padding-bottom: 80px; }
+
+        /* Articles */
+        .news-item { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #222; }
+        .news-title { font-size: 0.9rem; font-weight: bold; line-height: 1.4; }
+        .news-meta { font-size: 0.6rem; color: var(--orange); margin-bottom: 5px; display: flex; justify-content: space-between; }
+        .news-desc { display: none; font-size: 0.8rem; color: #ccc; margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
+        .news-item.open .news-desc { display: block; }
+
+        /* Indicator */
+        #scroll-indicator { position: fixed; right: 2px; top: 60px; width: 4px; height: 40px; background: var(--orange); opacity: 0; transition: opacity 0.5s; border-radius: 2px; }
         
-        handleScrollDown: function() {
-            const scrollZone = document.getElementById('main-scroll');
-            if (scrollZone) {
-                scrollZone.scrollBy(0, 180);
-                this.updateScrollIndicator();
-                if (navigator.vibrate) navigator.vibrate(5);
-            }
-        },
-        
-        handlePTT: function() {
-            // Le bouton latéral actualise les news
-            console.log('Refresh via PTT');
-            if (navigator.vibrate) navigator.vibrate([30, 30]);
-            fetchNews(currentCat);
-        },
+        .loader { text-align: center; padding: 40px; color: var(--orange); font-weight: bold; }
+    </style>
+</head>
+<body>
 
-        updateScrollIndicator: function() {
-            const sz = document.getElementById('main-scroll');
-            const ind = document.getElementById('scroll-indicator');
-            if (!sz || !ind) return;
-            
-            ind.style.opacity = "1";
-            const pct = sz.scrollTop / (sz.scrollHeight - sz.clientHeight);
-            ind.style.transform = `translateY(${pct * (window.innerHeight - 60)}px)`;
-            
-            clearTimeout(this.timer);
-            this.timer = setTimeout(() => ind.style.opacity = "0", 800);
+    <div id="scroll-indicator"></div>
+
+    <div class="tabs">
+        <button id="tab-wear" class="tab-btn active" onclick="changeCategory('wear')">VR & AR</button>
+        <button id="tab-phone" class="tab-btn" onclick="changeCategory('phone')">Phones</button>
+        <button id="tab-game" class="tab-btn" onclick="changeCategory('game')">Gaming</button>
+    </div>
+
+    <div id="main-scroll">
+        <div id="feed-container"></div>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURATION & VARIABLES ---
+        const pageModules = {};
+        let currentPage = 'hardware'; // Doit correspondre à la condition dans tes listeners
+        let currentCat = 'wear';
+        const SOURCES = {
+            wear: ['https://www.realite-virtuelle.com/feed/', 'https://uploadvr.com/rss/'],
+            phone: ['https://www.frandroid.com/feed'],
+            game: ['https://gamergen.com/rss/news']
+        };
+
+        // --- 2. MODULE HARDWARE (LE COEUR DU SYSTÈME) ---
+        const hardwareModule = {
+            handleScrollUp: function() {
+                const zone = document.getElementById('main-scroll');
+                if (zone) {
+                    zone.scrollBy(0, -150);
+                    this.showIndicator(zone);
+                }
+            },
+            handleScrollDown: function() {
+                const zone = document.getElementById('main-scroll');
+                if (zone) {
+                    zone.scrollBy(0, 150);
+                    this.showIndicator(zone);
+                }
+            },
+            handlePTT: function() {
+                fetchNews(currentCat); // Actualise la catégorie en cours
+            },
+            showIndicator: function(zone) {
+                const ind = document.getElementById('scroll-indicator');
+                if (!ind) return;
+                ind.style.opacity = "1";
+                const pct = zone.scrollTop / (zone.scrollHeight - zone.clientHeight);
+                ind.style.transform = `translateY(${pct * (window.innerHeight - 100)}px)`;
+                clearTimeout(this.t);
+                this.t = setTimeout(() => ind.style.opacity = "0", 800);
+            }
+        };
+
+        // Enregistrement obligatoire pour le SDK
+        pageModules.hardware = hardwareModule;
+
+        // --- 3. LISTENERS DU SDK (RECOPIÉS DE TON EXEMPLE) ---
+        function initializeHardwareListeners() {
+            window.addEventListener('scrollUp', () => {
+                if (currentPage === 'hardware' && pageModules.hardware) {
+                    pageModules.hardware.handleScrollUp();
+                }
+            });
+            window.addEventListener('scrollDown', () => {
+                if (currentPage === 'hardware' && pageModules.hardware) {
+                    pageModules.hardware.handleScrollDown();
+                }
+            });
+            window.addEventListener('sideClick', () => {
+                if (currentPage === 'hardware' && pageModules.hardware) {
+                    pageModules.hardware.handlePTT();
+                }
+            });
         }
-    };
 
-    // Enregistrement du module pour que initializeHardwareListeners() le trouve
-    pageModules.hardware = hardwareModule;
-
-    // Lancer le premier chargement
-    fetchNews('wear');
-}
-
-// Logique de récupération des News (à garder en dehors pour la clarté)
-let currentCat = 'wear';
-const SOURCES = {
-    wear: ['https://www.realite-virtuelle.com/feed/', 'https://uploadvr.com/rss/'],
-    phone: ['https://www.frandroid.com/feed'],
-    game: ['https://gamergen.com/rss/news']
-};
-
-async function fetchNews(cat) {
-    currentCat = cat;
-    const container = document.getElementById('feed-container');
-    if (!container) return;
-    
-    container.innerHTML = '<div class="loader">CHARGEMENT...</div>';
-    
-    try {
-        let allArticles = [];
-        for (let url of SOURCES[cat]) {
-            const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
-            const data = await res.json();
-            if (data.status === 'ok') {
-                allArticles = [...allArticles, ...data.items.map(i => ({...i, src: data.feed.title.substring(0,10)}))];
-            }
-        }
-        allArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-        
-        container.innerHTML = '';
-        allArticles.slice(0, 15).forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'news-item';
-            div.onclick = () => div.classList.toggle('open');
-            const cleanDesc = (item.description || "").replace(/<[^>]*>?/gm, '').substring(0, 150);
+        // --- 4. LOGIQUE DES NEWS ---
+        async function fetchNews(cat) {
+            currentCat = cat;
+            const container = document.getElementById('feed-container');
+            container.innerHTML = '<div class="loader">MAJ...</div>';
             
-            div.innerHTML = `
-                <div class="news-meta"><span>${item.src}</span><span>${new Date(item.pubDate).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}</span></div>
-                <div class="news-title">${item.title}</div>
-                <div class="news-desc">${cleanDesc}...<br><br><a href="${item.link}" target="_blank" style="color:#ff4e00;text-decoration:none;font-weight:bold;">LIRE LA SUITE</a></div>
-            `;
-            container.appendChild(div);
-        });
-    } catch (e) {
-        container.innerHTML = '<div class="loader">ERREUR DE CONNEXION</div>';
-    }
-}
+            try {
+                let all = [];
+                for (let url of SOURCES[cat]) {
+                    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
+                    const d = await res.json();
+                    if (d.status === 'ok') {
+                        all = [...all, ...d.items.map(i => ({...i, src: d.feed.title.substring(0,10)}))];
+                    }
+                }
+                all.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+                
+                container.innerHTML = '';
+                all.slice(0, 15).forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'news-item';
+                    div.onclick = () => div.classList.toggle('open');
+                    const desc = (item.description || "").replace(/<[^>]*>?/gm, '').substring(0, 150);
+                    div.innerHTML = `
+                        <div class="news-meta"><span>${item.src}</span><span>${new Date(item.pubDate).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}</span></div>
+                        <div class="news-title">${item.title}</div>
+                        <div class="news-desc">${desc}...<br><br><a href="${item.link}" target="_blank" style="color:#ff4e00; font-weight:bold; text-decoration:none;">LIRE SOURCE</a></div>
+                    `;
+                    container.appendChild(div);
+                });
+            } catch (e) { container.innerHTML = '<div class="loader">ERREUR RÉSEAU</div>'; }
+        }
 
-function changeCategory(cat) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('tab-' + cat).classList.add('active');
-    fetchNews(cat);
+        function changeCategory(cat) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + cat).classList.add('active');
+            fetchNews(cat);
+            document.getElementById('main-scroll').scrollTop = 0;
+        }
+
+        // --- 5. DÉMARRAGE ---
+        window.onload = () => {
+            initializeHardwareListeners();
+            fetchNews('wear');
+        };
+    </script>
+</body>
+</html>
 }
