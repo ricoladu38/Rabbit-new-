@@ -1,0 +1,10 @@
+body {
+  background: #000;
+  color: #fff;
+  font-family: sans-serif;
+}
+.news-block {
+  border-bottom: 1px solid #444;
+  padding: 10px;
+}
+a { color: #4af; text-decoration: none; }
