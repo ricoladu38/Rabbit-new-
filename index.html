@@ -14,29 +14,30 @@
         .tab-btn.active { color: var(--orange); }
 
         /* Content Area */
-        #main-scroll { height: calc(100vh - 45px); overflow-y: auto; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+        #main-scroll { height: calc(100vh - 45px); overflow-y: auto; scroll-behavior: smooth; }
         .feed-container { padding: 12px; padding-bottom: 100px; }
 
-        /* News Cards */
-        .news-item { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #222; transition: opacity 0.3s; }
-        .news-item.read { opacity: 0.4; background: var(--read); }
+        /* Cards */
+        .news-item { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #222; }
+        .news-item.read { opacity: 0.3; background: var(--read); border-color: #111; }
         .news-title { font-size: 0.95rem; font-weight: bold; line-height: 1.4; }
         .news-meta { font-size: 0.6rem; color: var(--orange); display: flex; justify-content: space-between; margin-bottom: 8px; }
         .news-desc { display: none; font-size: 0.85rem; color: #ccc; margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
         .news-item.open .news-desc { display: block; }
 
-        /* Buttons */
+        /* Buttons Actions */
         .card-actions { display: flex; gap: 10px; margin-top: 15px; }
         .action-btn { flex: 1; padding: 12px; border-radius: 10px; border: none; font-weight: bold; color: white; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 0.75rem; }
         .btn-speak { background: #333; }
         .btn-read { background: var(--orange); }
 
-        /* Overlay Options */
-        #options-menu { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a1a; padding: 20px; border-radius: 20px; border: 2px solid var(--orange); z-index: 300; display: none; width: 80%; text-align: center; }
-        .lang-btn { padding: 10px 20px; margin: 5px; border-radius: 8px; border: none; background: #333; color: white; font-weight: bold; }
-        .lang-btn.active { background: var(--orange); }
+        /* Menu Options */
+        #options-menu { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a1a; padding: 20px; border-radius: 20px; border: 2px solid var(--orange); z-index: 300; display: none; width: 85%; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.8); }
+        .lang-btn { padding: 10px 15px; margin: 5px; border-radius: 8px; border: 1px solid #444; background: #000; color: white; font-weight: bold; }
+        .lang-btn.active { background: var(--orange); border-color: var(--orange); }
+        .danger-btn { background: #600; color: white; width: 100%; margin-top: 15px; }
 
-        /* Fixed FAB */
+        /* FABs */
         .fab { position: fixed; width: 50px; height: 50px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; z-index: 200; box-shadow: 0 4px 15px rgba(0,0,0,0.6); font-size: 20px; }
         #refresh-btn { bottom: 20px; right: 20px; background: var(--orange); color: white; }
         #opt-trigger { bottom: 20px; left: 20px; background: #333; color: white; }
@@ -58,11 +59,14 @@
     <button class="fab" id="refresh-btn" onclick="triggerRefresh()">🔄</button>
 
     <div id="options-menu">
-        <p style="color:var(--orange); font-weight:bold;">SOURCES & LANGUE</p>
+        <p style="color:var(--orange); font-weight:bold; margin-bottom:15px;">RÉGLAGES RABBIT</p>
+        <div style="margin-bottom:10px; font-size:0.8rem;">LANGUE DES SOURCES :</div>
         <button id="btn-fr" class="lang-btn" onclick="setLang('fr')">Français</button>
         <button id="btn-en" class="lang-btn" onclick="setLang('en')">English</button>
+        
+        <button class="action-btn danger-btn" onclick="clearHistory()">🗑️ EFFACER HISTORIQUE</button>
         <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
-        <button class="action-btn btn-read" style="width:100%;" onclick="toggleMenu()">OK</button>
+        <button class="action-btn btn-read" style="width:100%;" onclick="toggleMenu()">RETOUR</button>
     </div>
 
     <div id="main-scroll">
@@ -75,43 +79,46 @@
         let currentLang = localStorage.getItem('newsLang') || 'fr';
         let readArticles = JSON.parse(localStorage.getItem('readArticles') || '[]');
 
+        // --- GESTION DES SOURCES (MODIFIE ICI) ---
         const SOURCES = {
             fr: { 
-                wear: ['https://www.realite-virtuelle.com/feed/'], 
-                phone: ['https://www.frandroid.com/feed'], 
-                game: ['https://gamergen.com/rss/news'] 
+                wear: ['https://www.realite-virtuelle.com/feed/', 'https://www.usine-digitale.fr/vr-ar/rss'], 
+                phone: ['https://www.frandroid.com/feed', 'https://www.lesnumeriques.com/telephone-portable/rss.xml'], 
+                game: ['https://gamergen.com/rss/news', 'https://www.jeuxvideo.com/rss/rss.xml'] 
             },
             en: { 
-                wear: ['https://uploadvr.com/rss/'], 
-                phone: ['https://www.theverge.com/rss/index.xml'], 
-                game: ['https://feeds.feedburner.com/ign/news'] 
+                wear: ['https://uploadvr.com/rss/', 'https://www.roadtovr.com/feed/'], 
+                phone: ['https://www.theverge.com/rss/index.xml', 'https://9to5google.com/feed/'], 
+                game: ['https://feeds.feedburner.com/ign/news', 'https://www.gamespot.com/feeds/news/'] 
             }
         };
 
-        // --- FONCTION SPEAK VIA PLUGIN MESSAGE HANDLER (TON SYSTÈME) ---
+        // --- FONCTION SPEAK UNIVERSELLE ---
         function speakNews(title, description) {
-            const text = `News: ${title}. Résumé: ${description}`;
+            const cleanTitle = title.replace(/['"«»]/g, " ");
+            const cleanDesc = description.replace(/['"«»]/g, " ");
+            const fullText = `${cleanTitle}. ${cleanDesc}`;
+
             if (typeof PluginMessageHandler !== 'undefined') {
-                const payload = {
-                    message: text,
+                PluginMessageHandler.postMessage(JSON.stringify({
+                    message: fullText,
                     useLLM: true,
                     wantsR1Response: true,
                     wantsJournalEntry: false 
-                };
-                PluginMessageHandler.postMessage(JSON.stringify(payload));
+                }));
             } else {
-                // Fallback navigateur
-                const msg = new SpeechSynthesisUtterance(text);
+                window.speechSynthesis.cancel();
+                const msg = new SpeechSynthesisUtterance(fullText);
                 msg.lang = currentLang === 'fr' ? 'fr-FR' : 'en-US';
                 window.speechSynthesis.speak(msg);
             }
             if(navigator.vibrate) navigator.vibrate(40);
         }
 
-        // --- HARDWARE MODULE (RABBIT R1) ---
+        // --- HARDWARE R1 ---
         const hardwareModule = {
-            handleScrollUp: () => document.getElementById('main-scroll').scrollBy(0, -220),
-            handleScrollDown: () => document.getElementById('main-scroll').scrollBy(0, 220),
+            handleScrollUp: () => document.getElementById('main-scroll').scrollBy(0, -250),
+            handleScrollDown: () => document.getElementById('main-scroll').scrollBy(0, 250),
             handlePTT: () => triggerRefresh()
         };
         pageModules.hardware = hardwareModule;
@@ -122,17 +129,17 @@
             window.addEventListener('sideClick', hardwareModule.handlePTT);
         }
 
-        // --- LOGIQUE CORE ---
+        // --- CORE LOGIC ---
         async function fetchNews(cat) {
             currentCat = cat;
             const container = document.getElementById('feed-container');
-            container.innerHTML = '<div class="loader">CHARGEMENT...</div>';
+            container.innerHTML = '<div class="loader">CHARGEMENT ' + currentLang.toUpperCase() + '...</div>';
             
             try {
                 let all = [];
                 const urls = SOURCES[currentLang][cat];
                 for (let url of urls) {
-                    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
+                    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}&api_key=4vshun7x9fquz4u9n8pnmexvunsqoax4v0m7z53o`);
                     const d = await res.json();
                     if (d.status === 'ok') all = [...all, ...d.items.map(i => ({...i, src: d.feed.title.substring(0,12)}))];
                 }
@@ -145,9 +152,10 @@
                     const div = document.createElement('div');
                     div.className = `news-item ${isRead ? 'read' : ''}`;
                     
-                    const desc = (item.description || "").replace(/<[^>]*>?/gm, '').substring(0, 200);
-                    const cleanT = item.title.replace(/'/g, " ");
-                    const cleanD = desc.replace(/'/g, " ");
+                    const desc = (item.description || "").replace(/<[^>]*>?/gm, '').substring(0, 220).trim();
+                    // Préparation sécurisée des textes pour les boutons
+                    const safeT = item.title.replace(/'/g, "\\'");
+                    const safeD = desc.replace(/'/g, "\\'");
 
                     div.innerHTML = `
                         <div class="news-meta"><span>${item.src}</span><span>${new Date(item.pubDate).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span></div>
@@ -155,7 +163,7 @@
                         <div class="news-desc">
                             ${desc}...
                             <div class="card-actions">
-                                <button class="action-btn btn-speak" onclick="event.stopPropagation(); speakNews('${cleanT}', '${cleanD}')">🔊 ÉCOUTER</button>
+                                <button class="action-btn btn-speak" onclick="event.stopPropagation(); speakNews('${safeT}', '${safeD}')">🔊 ÉCOUTER</button>
                                 <button class="action-btn btn-read" onclick="event.stopPropagation(); window.location.href='${item.link}'">LIRE</button>
                             </div>
                         </div>
@@ -165,6 +173,7 @@
                         if(!isRead) {
                             readArticles.push(id);
                             localStorage.setItem('readArticles', JSON.stringify(readArticles.slice(-50)));
+                            div.classList.add('read');
                         }
                     };
                     container.appendChild(div);
@@ -172,6 +181,7 @@
             } catch (e) { container.innerHTML = '<div class="loader">ERREUR RÉSEAU</div>'; }
         }
 
+        // --- MENU & HISTORIQUE ---
         function toggleMenu() {
             const m = document.getElementById('options-menu');
             m.style.display = m.style.display === 'block' ? 'none' : 'block';
@@ -191,7 +201,16 @@
             document.getElementById('btn-en').className = `lang-btn ${currentLang === 'en' ? 'active' : ''}`;
         }
 
-        function triggerRefresh() { if(navigator.vibrate) navigator.vibrate([30,30]); fetchNews(currentCat); }
+        function clearHistory() {
+            if(confirm("Effacer l'historique des articles lus ?")) {
+                readArticles = [];
+                localStorage.setItem('readArticles', '[]');
+                fetchNews(currentCat);
+                toggleMenu();
+            }
+        }
+
+        function triggerRefresh() { if(navigator.vibrate) navigator.vibrate([40,40]); fetchNews(currentCat); }
 
         function changeCategory(cat) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
