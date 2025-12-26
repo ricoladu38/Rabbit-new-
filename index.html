@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rabbit News Elite</title>
     <style>
         :root { --orange: #ff4e00; --bg: #000; --card: #151515; --text: #fff; --read: #0a0a0a; }
         body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding: 0; overflow: hidden; }
@@ -15,19 +14,22 @@
         .feed-container { padding: 12px; padding-bottom: 100px; }
         .news-item { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #222; }
         .news-item.read { opacity: 0.3; }
-        .news-title { font-size: 0.95rem; font-weight: bold; line-height: 1.3; margin: 5px 0; }
-        .news-meta { font-size: 0.55rem; color: var(--orange); display: flex; justify-content: space-between; }
+        .news-title { font-size: 0.9rem; font-weight: bold; line-height: 1.3; }
         .news-desc { display: none; font-size: 0.8rem; color: #ccc; margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
         .news-item.open .news-desc { display: block; }
         .card-actions { display: flex; gap: 8px; margin-top: 12px; }
-        .action-btn { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; color: white; font-size: 0.75rem; text-align: center; text-decoration: none; }
-        #options-menu { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a1a; padding: 20px; border-radius: 20px; border: 2px solid var(--orange); z-index: 300; display: none; width: 80%; text-align: center; }
-        .lang-btn { padding: 10px 15px; margin: 5px; border-radius: 8px; border: 1px solid #444; background: #000; color: white; font-weight: bold; }
-        .lang-btn.active { background: var(--orange); }
+        .action-btn { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; color: white; font-size: 0.7rem; text-align: center; }
+        
+        /* Menu Config Large */
+        #options-menu { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 300; display: none; flex-direction: column; }
+        .menu-content { padding: 20px; overflow-y: auto; flex-grow: 1; }
+        .source-item { display: flex; align-items: center; justify-content: space-between; background: #111; padding: 10px; margin-bottom: 5px; border-radius: 8px; font-size: 0.8rem; }
+        .source-item input { transform: scale(1.5); accent-color: var(--orange); }
+        
         .fab { position: fixed; width: 45px; height: 45px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; z-index: 200; font-size: 18px; color: white; }
         #refresh-btn { bottom: 15px; right: 15px; background: var(--orange); }
         #opt-trigger { bottom: 15px; left: 15px; background: #333; }
-        .loader { text-align: center; padding: 40px; color: var(--orange); font-size: 0.8rem; }
+        .loader { text-align: center; padding: 40px; color: var(--orange); }
     </style>
 </head>
 <body>
@@ -44,11 +46,22 @@
     <button class="fab" id="refresh-btn" onclick="triggerRefresh()">🔄</button>
 
     <div id="options-menu">
-        <p style="color:var(--orange); font-weight:bold;">SOURCES & LANGUE</p>
-        <button id="btn-fr" class="lang-btn" onclick="setLang('fr')">Français</button>
-        <button id="btn-en" class="lang-btn" onclick="setLang('en')">English</button>
-        <button onclick="clearHistory()" style="background:#600; color:white; width:100%; margin-top:15px; padding:10px; border:none; border-radius:8px; font-weight:bold;">🗑️ EFFACER HISTORIQUE</button>
-        <button onclick="toggleMenu()" style="width:100%; margin-top:20px; padding:10px; background:var(--orange); color:white; border:none; border-radius:8px;">RETOUR</button>
+        <div class="menu-content">
+            <h3 style="color:var(--orange); margin-top:0;">CONFIGURATION</h3>
+            
+            <div style="display:flex; gap:10px; margin-bottom:20px;">
+                <button onclick="setLang('fr')" id="btn-fr" class="action-btn" style="background:#222;">FRANÇAIS</button>
+                <button onclick="setLang('en')" id="btn-en" class="action-btn" style="background:#222;">ENGLISH</button>
+            </div>
+
+            <div id="source-selector">
+                <p style="font-size:0.7rem; color:#666;">SÉLECTIONNER LES SOURCES :</p>
+                <div id="sources-list"></div>
+            </div>
+
+            <button onclick="clearHistory()" style="background:#400; color:white; width:100%; margin-top:20px; padding:10px; border:none; border-radius:8px;">🗑️ EFFACER HISTORIQUE</button>
+        </div>
+        <button onclick="toggleMenu()" style="background:var(--orange); color:white; padding:15px; border:none; width:100%; font-weight:bold;">VALIDER ET FERMER</button>
     </div>
 
     <div id="main-scroll">
@@ -59,25 +72,49 @@
         let currentCat = 'wear';
         let currentLang = localStorage.getItem('newsLang') || 'fr';
         let readArticles = JSON.parse(localStorage.getItem('readArticles') || '[]');
-
-        const SOURCES = {
+        
+        // Liste étendue des sources
+        const ALL_SOURCES = {
             fr: {
-                wear: ['https://www.realite-virtuelle.com/feed/'],
-                phone: ['https://www.frandroid.com/feed'],
-                game: ['https://gamergen.com/rss/news']
+                wear: [
+                    { name: "Réalité-Virtuelle", url: "https://www.realite-virtuelle.com/feed/" },
+                    { name: "L'Usine Digitale", url: "https://www.usine-digitale.fr/vr-ar/rss" }
+                ],
+                phone: [
+                    { name: "Frandroid", url: "https://www.frandroid.com/feed" },
+                    { name: "Numerama", url: "https://www.numerama.com/tech/feed" },
+                    { name: "Les Numériques", url: "https://www.lesnumeriques.com/telephone-portable/rss.xml" }
+                ],
+                game: [
+                    { name: "GamerGen", url: "https://gamergen.com/rss/news" },
+                    { name: "JeuxVideo.com", url: "https://www.jeuxvideo.com/rss/rss.xml" },
+                    { name: "Gameblog", url: "https://www.gameblog.fr/rss" }
+                ]
             },
             en: {
-                wear: ['https://uploadvr.com/rss/'],
-                phone: ['https://www.theverge.com/rss/index.xml'],
-                game: ['https://feeds.feedburner.com/ign/news']
+                wear: [
+                    { name: "UploadVR", url: "https://uploadvr.com/rss/" },
+                    { name: "RoadToVR", url: "https://www.roadtovr.com/feed/" }
+                ],
+                phone: [
+                    { name: "The Verge", url: "https://www.theverge.com/rss/index.xml" },
+                    { name: "Engadget", url: "https://www.engadget.com/rss.xml" },
+                    { name: "Wired Tech", url: "https://www.wired.com/feed/category/gear/latest/rss" }
+                ],
+                game: [
+                    { name: "IGN", url: "https://feeds.feedburner.com/ign/news" },
+                    { name: "Kotaku", url: "https://kotaku.com/rss" },
+                    { name: "PC Gamer", url: "https://www.pcgamer.com/rss" }
+                ]
             }
         };
 
+        // Charger les préférences de sources
+        let enabledSources = JSON.parse(localStorage.getItem('enabledSources')) || {};
+
         function cleanForRabbit(text) {
             if(!text) return "";
-            return text.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D\u00AB\u00BB]/g, '"')
-                .replace(/[^\x00-\x7F]/g, i => i.normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
-                .replace(/['"]/g, " ").trim();
+            return text.replace(/[\u2018\u2019]/g, "'").replace(/[^\x00-\x7F]/g, i => i.normalize("NFD").replace(/[\u0300-\u036f]/g, "")).replace(/['"]/g, " ").trim();
         }
 
         function speakFromElement(btn) {
@@ -94,35 +131,54 @@
             }
         }
 
-        function openArticle(url, id) {
-            if(!readArticles.includes(id)) {
-                readArticles.push(id);
-                localStorage.setItem('readArticles', JSON.stringify(readArticles.slice(-30)));
+        function toggleSource(url) {
+            enabledSources[url] = !enabledSources[url];
+            localStorage.setItem('enabledSources', JSON.stringify(enabledSources));
+        }
+
+        function renderSourceMenu() {
+            const list = document.getElementById('sources-list');
+            list.innerHTML = "";
+            const currentSet = ALL_SOURCES[currentLang];
+            
+            for (let cat in currentSet) {
+                const title = document.createElement('div');
+                title.style = "color:var(--orange); font-size:0.6rem; margin-top:10px; text-transform:uppercase;";
+                title.innerText = cat;
+                list.appendChild(title);
+                
+                currentSet[cat].forEach(src => {
+                    if (enabledSources[src.url] === undefined) enabledSources[src.url] = true;
+                    const div = document.createElement('div');
+                    div.className = "source-item";
+                    div.innerHTML = `<span>${src.name}</span><input type="checkbox" ${enabledSources[src.url] ? 'checked' : ''} onchange="toggleSource('${src.url}')">`;
+                    list.appendChild(div);
+                });
             }
-            window.location.href = url;
         }
 
         async function fetchNews(cat) {
             currentCat = cat;
             const container = document.getElementById('feed-container');
-            container.innerHTML = '<div class="loader">Synchronisation...</div>';
+            container.innerHTML = '<div class="loader">Chargement...</div>';
             try {
                 let all = [];
-                const urls = SOURCES[currentLang][cat];
-                for (let url of urls) {
-                    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
+                const urls = ALL_SOURCES[currentLang][cat].filter(s => enabledSources[s.url] !== false);
+                
+                for (let src of urls) {
+                    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(src.url)}`);
                     const d = await res.json();
                     if (d.status === 'ok') {
                         all = [...all, ...d.items.map(i => ({
                             title: i.title, link: i.link, 
-                            desc: i.description.replace(/<[^>]*>?/gm, '').substring(0, 250).trim(),
-                            date: i.pubDate, src: d.feed.title.substring(0,12)
+                            desc: i.description.replace(/<[^>]*>?/gm, '').substring(0, 200).trim(),
+                            date: i.pubDate, src: src.name
                         }))];
                     }
                 }
                 all.sort((a, b) => new Date(b.date) - new Date(a.date));
-                container.innerHTML = '';
-                all.slice(0, 15).forEach(item => {
+                container.innerHTML = all.length ? '' : '<div class="loader">Aucune source activée</div>';
+                all.slice(0, 20).forEach(item => {
                     const isRead = readArticles.includes(item.link);
                     const div = document.createElement('div');
                     div.className = `news-item ${isRead ? 'read' : ''}`;
@@ -133,15 +189,12 @@
                             ${item.desc}...
                             <div class="card-actions">
                                 <button class="action-btn" style="background:#333;" 
-                                    data-title="${item.title.replace(/"/g, '&quot;')}" 
-                                    data-desc="${item.desc.replace(/"/g, '&quot;')}"
+                                    data-title="${item.title.replace(/"/g, '&quot;')}" data-desc="${item.desc.replace(/"/g, '&quot;')}"
                                     onclick="event.stopPropagation(); speakFromElement(this)">🔊 ÉCOUTER</button>
-                                <button class="action-btn" style="background:var(--orange);" 
-                                    onclick="event.stopPropagation(); openArticle('${item.link}', '${item.link}')">LIRE</button>
+                                <button class="action-btn" style="background:var(--orange);" onclick="event.stopPropagation(); window.location.href='${item.link}'">LIRE</button>
                             </div>
-                        </div>
-                    `;
-                    div.onclick = () => { div.classList.toggle('open'); };
+                        </div>`;
+                    div.onclick = () => { div.classList.toggle('open'); if(!isRead){readArticles.push(item.link); localStorage.setItem('readArticles', JSON.stringify(readArticles.slice(-30)));} };
                     container.appendChild(div);
                 });
             } catch (e) { container.innerHTML = '<div class="loader">Erreur réseau</div>'; }
@@ -149,10 +202,17 @@
 
         function toggleMenu() { 
             const m = document.getElementById('options-menu');
-            m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+            const open = m.style.display === 'flex';
+            m.style.display = open ? 'none' : 'flex';
+            if(!open) {
+                renderSourceMenu();
+                document.getElementById('btn-fr').style.border = currentLang === 'fr' ? '2px solid white' : 'none';
+                document.getElementById('btn-en').style.border = currentLang === 'en' ? '2px solid white' : 'none';
+            } else { fetchNews(currentCat); }
         }
-        function setLang(l) { currentLang = l; localStorage.setItem('newsLang', l); toggleMenu(); fetchNews(currentCat); }
-        function clearHistory() { readArticles = []; localStorage.setItem('readArticles', '[]'); fetchNews(currentCat); toggleMenu(); }
+
+        function setLang(l) { currentLang = l; localStorage.setItem('newsLang', l); renderSourceMenu(); }
+        function clearHistory() { readArticles = []; localStorage.setItem('readArticles', '[]'); toggleMenu(); }
         function triggerRefresh() { fetchNews(currentCat); }
         function changeCategory(cat) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -168,4 +228,5 @@
         };
     </script>
 </body>
+</html>
 </html>
