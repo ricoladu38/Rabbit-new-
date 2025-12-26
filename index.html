@@ -3,21 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rabbit News Elite</title>
     <style>
         :root { --orange: #ff4e00; --bg: #000; --card: #151515; --text: #fff; --read: #0a0a0a; }
         body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding: 0; overflow: hidden; }
-
+        
         /* Navigation */
         .header { background: #000; border-bottom: 2px solid var(--orange); position: sticky; top: 0; z-index: 100; }
         .tabs { display: flex; height: 45px; }
         .tab-btn { flex: 1; border: none; background: none; color: #666; font-size: 0.6rem; font-weight: bold; text-transform: uppercase; }
         .tab-btn.active { color: var(--orange); }
 
-        /* Content */
+        /* Contenu */
         #main-scroll { height: calc(100vh - 45px); overflow-y: auto; scroll-behavior: smooth; }
         .feed-container { padding: 12px; padding-bottom: 100px; }
 
-        /* Cards */
+        /* Cartes News */
         .news-item { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #222; }
         .news-item.read { opacity: 0.3; }
         .news-title { font-size: 0.95rem; font-weight: bold; line-height: 1.3; margin: 5px 0; }
@@ -25,14 +26,20 @@
         .news-desc { display: none; font-size: 0.8rem; color: #ccc; margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
         .news-item.open .news-desc { display: block; }
 
+        /* Actions */
         .card-actions { display: flex; gap: 8px; margin-top: 12px; }
-        .action-btn { flex: 1; padding: 10px; border-radius: 8px; border: none; font-weight: bold; color: white; font-size: 0.7rem; }
-        
-        /* UI */
+        .action-btn { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; color: white; font-size: 0.75rem; }
+
+        /* Menu Options */
         #options-menu { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a1a; padding: 20px; border-radius: 20px; border: 2px solid var(--orange); z-index: 300; display: none; width: 80%; text-align: center; }
-        .fab { position: fixed; width: 45px; height: 45px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; z-index: 200; font-size: 18px; }
+        .lang-btn { padding: 10px 15px; margin: 5px; border-radius: 8px; border: 1px solid #444; background: #000; color: white; font-weight: bold; }
+        .lang-btn.active { background: var(--orange); }
+
+        /* FABs */
+        .fab { position: fixed; width: 45px; height: 45px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; z-index: 200; font-size: 18px; color: white; }
         #refresh-btn { bottom: 15px; right: 15px; background: var(--orange); }
         #opt-trigger { bottom: 15px; left: 15px; background: #333; }
+        
         .loader { text-align: center; padding: 40px; color: var(--orange); font-size: 0.8rem; }
     </style>
 </head>
@@ -50,11 +57,11 @@
     <button class="fab" id="refresh-btn" onclick="triggerRefresh()">🔄</button>
 
     <div id="options-menu">
-        <p style="color:var(--orange); font-weight:bold;">CONFIG SOURCES</p>
-        <button onclick="setLang('fr')" style="padding:10px; width:40%;">FR</button>
-        <button onclick="setLang('en')" style="padding:10px; width:40%;">EN</button>
-        <button onclick="clearHistory()" style="background:#400; color:white; width:100%; margin-top:10px; padding:8px; border:none; border-radius:5px;">Effacer l'historique</button>
-        <button onclick="toggleMenu()" style="width:100%; margin-top:20px; padding:10px; background:var(--orange); color:white; border:none; border-radius:5px;">OK</button>
+        <p style="color:var(--orange); font-weight:bold;">SOURCES & LANGUE</p>
+        <button id="btn-fr" class="lang-btn" onclick="setLang('fr')">Français</button>
+        <button id="btn-en" class="lang-btn" onclick="setLang('en')">English</button>
+        <button onclick="clearHistory()" style="background:#600; color:white; width:100%; margin-top:15px; padding:10px; border:none; border-radius:8px; font-weight:bold;">🗑️ EFFACER HISTORIQUE</button>
+        <button onclick="toggleMenu()" style="width:100%; margin-top:20px; padding:10px; background:var(--orange); color:white; border:none; border-radius:8px;">RETOUR</button>
     </div>
 
     <div id="main-scroll">
@@ -67,7 +74,6 @@
         let currentLang = localStorage.getItem('newsLang') || 'fr';
         let readArticles = JSON.parse(localStorage.getItem('readArticles') || '[]');
 
-        // SOURCES SIMPLIFIÉES POUR ÉVITER LES ERREURS
         const SOURCES = {
             fr: {
                 wear: ['https://www.realite-virtuelle.com/feed/'],
@@ -81,61 +87,64 @@
             }
         };
 
-        function speakNews(title, desc) {
-            const text = `${title}. ${desc}`.replace(/['"]/g, " ");
+        // --- NETTOYAGE POUR IA RABBIT ---
+        function cleanForRabbit(text) {
+            return text
+                .replace(/[\u2018\u2019]/g, "'")
+                .replace(/[\u201C\u201D\u00AB\u00BB]/g, '"')
+                .replace(/[^\x00-\x7F]/g, i => i.normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+                .replace(/['"]/g, " ")
+                .trim();
+        }
+
+        function speakFromElement(btn) {
+            const rawTitle = btn.getAttribute('data-title');
+            const rawDesc = btn.getAttribute('data-desc');
+            const textToSpeak = cleanForRabbit(rawTitle) + ". " + cleanForRabbit(rawDesc);
+
             if (typeof PluginMessageHandler !== 'undefined') {
                 PluginMessageHandler.postMessage(JSON.stringify({
-                    message: text, useLLM: true, wantsR1Response: true, wantsJournalEntry: false 
+                    message: textToSpeak,
+                    useLLM: true,
+                    wantsR1Response: true,
+                    wantsJournalEntry: false 
                 }));
             } else {
                 window.speechSynthesis.cancel();
-                const msg = new SpeechSynthesisUtterance(text);
+                const msg = new SpeechSynthesisUtterance(textToSpeak);
                 msg.lang = currentLang === 'fr' ? 'fr-FR' : 'en-US';
                 window.speechSynthesis.speak(msg);
             }
+            if(navigator.vibrate) navigator.vibrate(40);
         }
 
-        const hardwareModule = {
-            handleScrollUp: () => document.getElementById('main-scroll').scrollBy(0, -250),
-            handleScrollDown: () => document.getElementById('main-scroll').scrollBy(0, 250),
-            handlePTT: () => triggerRefresh()
-        };
-        pageModules.hardware = hardwareModule;
-
+        // --- LOGIQUE NEWS ---
         async function fetchNews(cat) {
             currentCat = cat;
             const container = document.getElementById('feed-container');
-            container.innerHTML = '<div class="loader">Recherche des sources...</div>';
+            container.innerHTML = '<div class="loader">Synchronisation...</div>';
             
             try {
                 let all = [];
                 const urls = SOURCES[currentLang][cat];
-                
                 for (let url of urls) {
-                    // Utilisation du service sans clé API pour plus de stabilité
                     const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
                     const d = await res.json();
-                    
                     if (d.status === 'ok') {
                         all = [...all, ...d.items.map(i => ({
                             title: i.title,
                             link: i.link,
-                            desc: i.description.replace(/<[^>]*>?/gm, '').substring(0, 200),
+                            desc: i.description.replace(/<[^>]*>?/gm, '').substring(0, 250).trim(),
                             date: i.pubDate,
                             src: d.feed.title.substring(0,12)
                         }))];
                     }
                 }
 
-                if (all.length === 0) {
-                    container.innerHTML = '<div class="loader">Aucun article trouvé.</div>';
-                    return;
-                }
-
                 all.sort((a, b) => new Date(b.date) - new Date(a.date));
                 container.innerHTML = '';
                 
-                all.forEach(item => {
+                all.slice(0, 15).forEach(item => {
                     const isRead = readArticles.includes(item.link);
                     const div = document.createElement('div');
                     div.className = `news-item ${isRead ? 'read' : ''}`;
@@ -146,7 +155,10 @@
                         <div class="news-desc">
                             ${item.desc}...
                             <div class="card-actions">
-                                <button class="action-btn" style="background:#333;" onclick="event.stopPropagation(); speakNews('${item.title.replace(/'/g, " ")}', '${item.desc.replace(/'/g, " ")}')">🔊 ÉCOUTER</button>
+                                <button class="action-btn" style="background:#333;" 
+                                    data-title="${item.title.replace(/"/g, '&quot;')}" 
+                                    data-desc="${item.desc.replace(/"/g, '&quot;')}"
+                                    onclick="event.stopPropagation(); speakFromElement(this)">🔊 ÉCOUTER</button>
                                 <button class="action-btn" style="background:var(--orange);" onclick="event.stopPropagation(); window.location.href='${item.link}'">LIRE</button>
                             </div>
                         </div>
@@ -156,29 +168,49 @@
                         if(!isRead) {
                             readArticles.push(item.link);
                             localStorage.setItem('readArticles', JSON.stringify(readArticles.slice(-30)));
+                            div.classList.add('read');
                         }
                     };
                     container.appendChild(div);
                 });
-            } catch (e) {
-                container.innerHTML = '<div class="loader">Erreur de connexion.<br>Vérifiez le Wi-Fi.</div>';
-            }
+            } catch (e) { container.innerHTML = '<div class="loader">Erreur réseau</div>'; }
         }
 
-        function toggleMenu() { document.getElementById('options-menu').style.display = (document.getElementById('options-menu').style.display === 'block') ? 'none' : 'block'; }
-        function setLang(l) { currentLang = l; localStorage.setItem('newsLang', l); toggleMenu(); fetchNews(currentCat); }
-        function clearHistory() { readArticles = []; localStorage.setItem('readArticles', '[]'); fetchNews(currentCat); toggleMenu(); }
+        // --- INTERFACE ---
+        function toggleMenu() { 
+            const m = document.getElementById('options-menu');
+            m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+            document.getElementById('btn-fr').className = `lang-btn ${currentLang === 'fr' ? 'active' : ''}`;
+            document.getElementById('btn-en').className = `lang-btn ${currentLang === 'en' ? 'active' : ''}`;
+        }
+
+        function setLang(l) {
+            currentLang = l;
+            localStorage.setItem('newsLang', l);
+            toggleMenu();
+            fetchNews(currentCat);
+        }
+
+        function clearHistory() {
+            readArticles = [];
+            localStorage.setItem('readArticles', '[]');
+            fetchNews(currentCat);
+            toggleMenu();
+        }
+
         function triggerRefresh() { fetchNews(currentCat); }
+
         function changeCategory(cat) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('tab-' + cat).classList.add('active');
             fetchNews(cat);
+            document.getElementById('main-scroll').scrollTop = 0;
         }
 
         window.onload = () => {
-            window.addEventListener('scrollUp', hardwareModule.handleScrollUp);
-            window.addEventListener('scrollDown', hardwareModule.handleScrollDown);
-            window.addEventListener('sideClick', hardwareModule.handlePTT);
+            window.addEventListener('scrollUp', () => document.getElementById('main-scroll').scrollBy(0, -250));
+            window.addEventListener('scrollDown', () => document.getElementById('main-scroll').scrollBy(0, 250));
+            window.addEventListener('sideClick', triggerRefresh);
             fetchNews('wear');
         };
     </script>
