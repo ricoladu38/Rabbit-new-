@@ -10,21 +10,42 @@ const notif = document.getElementById("notif");
 const btn = document.getElementById("refresh");
 
 const STORAGE_KEY = "lastSeenFR";
-const TIMEOUT = 3000; // 3 secondes max par source
+const TIMEOUT = 3500;
 
 btn.addEventListener("click", loadNews);
 
-function fetchWithTimeout(url, timeout) {
-  return Promise.race([
-    fetch(url).then(res => res.text()),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("timeout")), timeout)
-    )
-  ]);
+function timeoutPromise(ms) {
+  return new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("timeout")), ms)
+  );
+}
+
+async function tryFetch(url) {
+  const proxies = [
+    u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+    u => `https://thingproxy.freeboard.io/fetch/${u}`,
+    u => u // direct (si autorisé)
+  ];
+
+  for (const proxy of proxies) {
+    try {
+      const res = await Promise.race([
+        fetch(proxy(url)),
+        timeoutPromise(TIMEOUT)
+      ]);
+
+      if (!res.ok) continue;
+
+      const text = await res.text();
+      if (text && text.length > 100) return text;
+    } catch (_) {}
+  }
+
+  throw new Error("all_failed");
 }
 
 async function loadNews() {
-  container.innerHTML = "⏳ Chargement des actus…";
+  container.innerHTML = "⏳ Chargement…";
   notif.style.display = "none";
 
   const lastSeenRaw = localStorage.getItem(STORAGE_KEY);
@@ -34,24 +55,17 @@ async function loadNews() {
   let hasNew = false;
   let html = "";
 
-  const tasks = feeds.map(feed => loadFeed(feed, lastSeen)
-    .then(result => {
-      if (!result) return;
-
-      if (result.hasNew) hasNew = true;
-      if (result.newestDate && (!newestDate || result.newestDate > newestDate)) {
-        newestDate = result.newestDate;
-      }
-
-      html += result.html;
-    })
-    .catch(() => {
-      html += `
-        <div class="item">
-          <div>Source indisponible</div>
-          <div class="source">${feed.name}</div>
-        </div>`;
-    })
+  const tasks = feeds.map(feed =>
+    loadFeed(feed, lastSeen)
+      .then(result => {
+        if (!result) return;
+        if (result.hasNew) hasNew = true;
+        if (result.newestDate && (!newestDate || result.newestDate > newestDate)) {
+          newestDate = result.newestDate;
+        }
+        html += result.html;
+      })
+      .catch(() => {})
   );
 
   await Promise.all(tasks);
@@ -59,12 +73,11 @@ async function loadNews() {
   if (hasNew) notif.style.display = "block";
   if (newestDate) localStorage.setItem(STORAGE_KEY, newestDate.toISOString());
 
-  container.innerHTML = html || "Aucune actu disponible.";
+  container.innerHTML = html || "Aucune source dispo pour le moment.";
 }
 
 async function loadFeed(feed, lastSeen) {
-  const api = `https://api.allorigins.win/raw?url=${encodeURIComponent(feed.url)}&t=${Date.now()}`;
-  const text = await fetchWithTimeout(api, TIMEOUT);
+  const text = await tryFetch(feed.url);
 
   const parser = new DOMParser();
   const xml = parser.parseFromString(text, "text/xml");
@@ -75,14 +88,16 @@ async function loadFeed(feed, lastSeen) {
   let hasNew = false;
 
   items.forEach((item, index) => {
-    if (index >= 2) return; // 🔥 LIMITATION POUR PERF
+    if (index >= 2) return;
 
-    const title = item.querySelector("title")?.textContent || "Sans titre";
+    const title = item.querySelector("title")?.textContent;
     const pubDateText = item.querySelector("pubDate")?.textContent;
-    const pubDate = pubDateText ? new Date(pubDateText) : null;
+    if (!title || !pubDateText) return;
 
-    if (pubDate && lastSeen && pubDate > lastSeen) hasNew = true;
-    if (pubDate && (!feedNewestDate || pubDate > feedNewestDate)) {
+    const pubDate = new Date(pubDateText);
+
+    if (lastSeen && pubDate > lastSeen) hasNew = true;
+    if (!feedNewestDate || pubDate > feedNewestDate) {
       feedNewestDate = pubDate;
     }
 
